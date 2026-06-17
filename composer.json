@@ -1,0 +1,43 @@
+{
+    "name": "laraditz/courier",
+    "description": "A unified interface for multiple courier and shipping carrier services in Laravel.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Raditz Farhan",
+            "email": "ahmad.farhan@globaltium.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "illuminate/contracts": "^10.0|^11.0|^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "phpunit/phpunit": "^10.0|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Laraditz\\Courier\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Laraditz\\Courier\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Laraditz\\Courier\\CourierServiceProvider"
+            ],
+            "aliases": {
+                "Courier": "Laraditz\\Courier\\Facades\\Courier"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
