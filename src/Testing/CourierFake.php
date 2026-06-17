@@ -21,7 +21,7 @@ class CourierFake implements CourierDriver
 
     public function __construct(private array $responses = []) {}
 
-    public function driver(string $driver = null): static
+    public function driver(?string $driver = null): static
     {
         return $this;
     }
