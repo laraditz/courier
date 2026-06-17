@@ -8,7 +8,7 @@ class CourierManager extends Manager
 {
     public function getDefaultDriver(): string
     {
-        return $this->config->get('courier.default', 'sfexpress');
+        return $this->config->get('courier.default');
     }
 
     protected function callCustomCreator($driver): mixed
