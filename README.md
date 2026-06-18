@@ -1,4 +1,4 @@
-# laraditz/courier
+# Laravel Courier
 
 A unified interface for multiple courier and shipping carrier services in Laravel.
 
@@ -27,8 +27,8 @@ php artisan vendor:publish --tag=courier-config
 
 ## Available Drivers
 
-| Package | Carrier |
-|---|---|
+| Package                                                                     | Carrier    |
+| --------------------------------------------------------------------------- | ---------- |
 | [laraditz/courier-sfexpress](https://github.com/laraditz/courier-sfexpress) | SF Express |
 
 ## Configuration
@@ -52,39 +52,39 @@ return [
 
 ## Available Methods
 
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `createShipment` | `ShipmentPayload $payload` | `ShipmentResult` | Book a new shipment and get a waybill number |
-| `track` | `string $trackingNumber` | `TrackingResult` | Get current status and full tracking history |
-| `getRates` | `RatePayload $payload` | `RateCollection` | Fetch available service options and prices for a route |
-| `cancelShipment` | `string $waybillNumber` | `CancelResult` | Cancel an existing shipment |
-| `getLabel` | `string $waybillNumber` | `LabelResult` | Retrieve the shipping label (base64 PDF or ZPL) |
-| `getAvailability` | `AvailabilityPayload $payload` | `ServiceCollection` | List services available between two locations |
+| Method            | Parameters                     | Returns             | Description                                            |
+| ----------------- | ------------------------------ | ------------------- | ------------------------------------------------------ |
+| `createShipment`  | `ShipmentPayload $payload`     | `ShipmentResult`    | Book a new shipment and get a waybill number           |
+| `track`           | `string $trackingNumber`       | `TrackingResult`    | Get current status and full tracking history           |
+| `getRates`        | `RatePayload $payload`         | `RateCollection`    | Fetch available service options and prices for a route |
+| `cancelShipment`  | `string $waybillNumber`        | `CancelResult`      | Cancel an existing shipment                            |
+| `getLabel`        | `string $waybillNumber`        | `LabelResult`       | Retrieve the shipping label (base64 PDF or ZPL)        |
+| `getAvailability` | `AvailabilityPayload $payload` | `ServiceCollection` | List services available between two locations          |
 
 ### Result DTOs
 
-| DTO | Key Properties |
-|---|---|
-| `ShipmentResult` | `waybillNumber`, `status`, `estimatedDelivery`, `meta()` |
-| `TrackingResult` | `waybillNumber`, `status`, `estimatedDelivery`, `events[]`, `meta()` |
-| `TrackingEvent` | `timestamp`, `location`, `description`, `status` |
-| `RateCollection` | `items[]` → `RateOption` |
-| `RateOption` | `serviceCode`, `serviceName`, `price`, `currency`, `estimatedDays` |
-| `CancelResult` | `success`, `message`, `meta()` |
-| `LabelResult` | `waybillNumber`, `format`, `content`, `meta()` |
-| `ServiceCollection` | `items[]` → `ServiceOption` |
-| `ServiceOption` | `code`, `name`, `description`, `estimatedDays` |
+| DTO                 | Key Properties                                                       |
+| ------------------- | -------------------------------------------------------------------- |
+| `ShipmentResult`    | `waybillNumber`, `status`, `estimatedDelivery`, `meta()`             |
+| `TrackingResult`    | `waybillNumber`, `status`, `estimatedDelivery`, `events[]`, `meta()` |
+| `TrackingEvent`     | `timestamp`, `location`, `description`, `status`                     |
+| `RateCollection`    | `items[]` → `RateOption`                                             |
+| `RateOption`        | `serviceCode`, `serviceName`, `price`, `currency`, `estimatedDays`   |
+| `CancelResult`      | `success`, `message`, `meta()`                                       |
+| `LabelResult`       | `waybillNumber`, `format`, `content`, `meta()`                       |
+| `ServiceCollection` | `items[]` → `ServiceOption`                                          |
+| `ServiceOption`     | `code`, `name`, `description`, `estimatedDays`                       |
 
 ### Payload DTOs
 
-| DTO | Properties |
-|---|---|
-| `ShipmentPayload` | `sender: Address`, `recipient: Address`, `parcel: Parcel`, `serviceCode: string`, `remarks: ?string` |
-| `RatePayload` | `origin: Location`, `destination: Location`, `parcel: Parcel` |
-| `AvailabilityPayload` | `origin: Location`, `destination: Location` |
-| `Address` | `name`, `phone`, `email`, `line1`, `line2`, `line3`, `city`, `state`, `postcode`, `country` |
-| `Location` | `postcode`, `city`, `state`, `country` |
-| `Parcel` | `weight`, `length`, `width`, `height`, `declaredValue`, `description`, `quantity` |
+| DTO                   | Properties                                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `ShipmentPayload`     | `sender: Address`, `recipient: Address`, `parcel: Parcel`, `serviceCode: string`, `remarks: ?string` |
+| `RatePayload`         | `origin: Location`, `destination: Location`, `parcel: Parcel`                                        |
+| `AvailabilityPayload` | `origin: Location`, `destination: Location`                                                          |
+| `Address`             | `name`, `phone`, `email`, `line1`, `line2`, `line3`, `city`, `state`, `postcode`, `country`          |
+| `Location`            | `postcode`, `city`, `state`, `country`                                                               |
+| `Parcel`              | `weight`, `length`, `width`, `height`, `declaredValue`, `description`, `quantity`                    |
 
 ---
 
@@ -100,7 +100,7 @@ use Laraditz\Courier\DTOs\Payloads\ShipmentPayload;
 
 $result = Courier::createShipment(new ShipmentPayload(
     sender: new Address(
-        name: 'Ahmad Farhan',
+        name: 'Raditz Farhan',
         phone: '+60123456789',
         email: null,
         line1: 'No 1 Jalan Test',
@@ -227,17 +227,17 @@ $fake = Courier::fake([
 
 All drivers map their carrier-specific statuses to these values:
 
-| Status | Meaning |
-|---|---|
-| `pending` | Shipment created, not yet picked up |
-| `picked_up` | Collected by courier |
-| `in_transit` | Moving through the network |
-| `out_for_delivery` | On the delivery vehicle |
-| `delivered` | Successfully delivered |
-| `failed_delivery` | Delivery attempt failed |
-| `returned` | Returned to sender |
-| `cancelled` | Shipment cancelled |
-| `unknown` | Status not recognized |
+| Status             | Meaning                             |
+| ------------------ | ----------------------------------- |
+| `pending`          | Shipment created, not yet picked up |
+| `picked_up`        | Collected by courier                |
+| `in_transit`       | Moving through the network          |
+| `out_for_delivery` | On the delivery vehicle             |
+| `delivered`        | Successfully delivered              |
+| `failed_delivery`  | Delivery attempt failed             |
+| `returned`         | Returned to sender                  |
+| `cancelled`        | Shipment cancelled                  |
+| `unknown`          | Status not recognized               |
 
 ## Building a Custom Driver
 
