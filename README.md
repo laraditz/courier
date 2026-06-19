@@ -41,10 +41,14 @@ return [
 
     'drivers' => [
         'sfexpress' => [
-            'account' => env('SFEXPRESS_ACCOUNT'),
-            'key'     => env('SFEXPRESS_KEY'),
-            'secret'  => env('SFEXPRESS_SECRET'),
-            'sandbox' => env('SFEXPRESS_SANDBOX', false),
+            'key'              => env('SFEXPRESS_KEY'),
+            'secret'           => env('SFEXPRESS_SECRET'),
+            'customer_code'    => env('SFEXPRESS_CUSTOMER_CODE'),
+            'encoding_aes_key' => env('SFEXPRESS_AES_KEY'),
+            'pay_month_card'   => env('SFEXPRESS_PAY_MONTH_CARD'),
+            'country'          => env('SFEXPRESS_COUNTRY', 'MY'),
+            'scope_name'       => env('SFEXPRESS_SCOPE', 'OSMY'),
+            'sandbox'          => env('SFEXPRESS_SANDBOX', false),
         ],
     ],
 ];
@@ -58,8 +62,10 @@ return [
 | `track`           | `string $trackingNumber`       | `TrackingResult`    | Get current status and full tracking history           |
 | `getRates`        | `RatePayload $payload`         | `RateCollection`    | Fetch available service options and prices for a route |
 | `cancelShipment`  | `string $waybillNumber`        | `CancelResult`      | Cancel an existing shipment                            |
-| `getLabel`        | `string $waybillNumber`        | `LabelResult`       | Retrieve the shipping label (base64 PDF or ZPL)        |
+| `getLabel`        | `string $waybillNumber`        | `LabelResult`       | Retrieve the shipping label (PDF bytes or ZPL)         |
 | `getAvailability` | `AvailabilityPayload $payload` | `ServiceCollection` | List services available between two locations          |
+
+> **Driver support:** Not all drivers implement every method. Calling an unsupported method throws `Laraditz\Courier\Exceptions\UnsupportedOperationException`. Check the driver's documentation for which methods are available.
 
 ### Result DTOs
 
@@ -121,19 +127,19 @@ $result = Courier::createShipment(new ShipmentPayload(
         description: 'Goods',
         quantity: 1,
     ),
-    serviceCode: 'STANDARD',
+    serviceCode: 'M102',
 ));
 
-$result->waybillNumber; // 'SF1234567890'
+$result->waybillNumber; // 'MYIU1234715622'
 $result->status;        // 'pending'
 ```
 
 ### Track a Shipment
 
 ```php
-$result = Courier::track('SF1234567890');
+$result = Courier::track('MYIU1234715622');
 
-$result->waybillNumber;  // 'SF1234567890'
+$result->waybillNumber;  // 'MYIU1234715622'
 $result->status;         // 'in_transit'
 $result->events;         // TrackingEvent[]
 
@@ -170,13 +176,13 @@ foreach ($rates->items as $option) {
 
 ```php
 // Cancel
-$result = Courier::cancelShipment('SF1234567890');
+$result = Courier::cancelShipment('MYIU1234715622');
 $result->success;  // true
 
-// Get label (returns base64-encoded PDF or ZPL)
-$result = Courier::getLabel('SF1234567890');
+// Get label — content is raw bytes (PDF or ZPL depending on driver)
+$result = Courier::getLabel('MYIU1234715622');
 $result->format;   // 'pdf'
-$result->content;  // base64 string
+$result->content;  // raw bytes
 
 // Check service availability by route
 $services = Courier::getAvailability(new AvailabilityPayload(
@@ -189,7 +195,7 @@ $services = Courier::getAvailability(new AvailabilityPayload(
 
 ```php
 // Use a specific driver explicitly
-Courier::driver('sfexpress')->track('SF1234567890');
+Courier::driver('sfexpress')->track('MYIU1234715622');
 ```
 
 ### Testing
