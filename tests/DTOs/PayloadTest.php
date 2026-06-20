@@ -77,4 +77,29 @@ class PayloadTest extends TestCase
         $this->assertSame('MY', $payload->origin->country);
         $this->assertSame('MY', $payload->destination->country);
     }
+
+    public function test_shipment_payload_scheduled_at_default_null(): void
+    {
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+        );
+        $this->assertNull($payload->scheduledAt);
+    }
+
+    public function test_shipment_payload_scheduled_at_can_be_set(): void
+    {
+        $at = \Carbon\Carbon::parse('2026-06-21 14:00:00');
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+            scheduledAt: $at,
+        );
+        $this->assertInstanceOf(\Carbon\Carbon::class, $payload->scheduledAt);
+        $this->assertTrue($payload->scheduledAt->eq($at));
+    }
 }

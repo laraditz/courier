@@ -15,5 +15,7 @@ readonly class Address
         public string $state,
         public string $postcode,
         public string $country,
+        public ?float $lat = null,
+        public ?float $lng = null,
     ) {}
 }
