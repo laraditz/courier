@@ -10,6 +10,7 @@ readonly class RatePayload
     public function __construct(
         public Location $origin,
         public Location $destination,
-        public Parcel $parcel,
+        public Parcel   $parcel,
+        public string   $serviceCode = '',
     ) {}
 }
