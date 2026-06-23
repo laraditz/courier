@@ -9,5 +9,7 @@ readonly class Location
         public string $city,
         public string $state,
         public string $country,
+        public ?float $lat = null,
+        public ?float $lng = null,
     ) {}
 }

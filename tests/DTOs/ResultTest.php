@@ -135,4 +135,30 @@ class ResultTest extends TestCase
         $this->assertCount(1, $collection->items);
         $this->assertSame('STANDARD', $collection->items[0]->code);
     }
+
+    public function test_rate_option_meta_defaults_empty(): void
+    {
+        $option = new \Laraditz\Courier\DTOs\Results\RateOption(
+            serviceCode: 'MOTORCYCLE',
+            serviceName: 'Motorcycle',
+            price: 8.00,
+            currency: 'MYR',
+            estimatedDays: null,
+        );
+        $this->assertSame([], $option->meta());
+    }
+
+    public function test_rate_option_meta_stores_values(): void
+    {
+        $option = new \Laraditz\Courier\DTOs\Results\RateOption(
+            serviceCode: 'MOTORCYCLE',
+            serviceName: 'Motorcycle',
+            price: 8.00,
+            currency: 'MYR',
+            estimatedDays: null,
+            meta: ['quotation_id' => 'abc123', 'expires_at' => '2026-06-20T10:05:00Z'],
+        );
+        $this->assertSame('abc123', $option->meta()['quotation_id']);
+        $this->assertSame('2026-06-20T10:05:00Z', $option->meta()['expires_at']);
+    }
 }

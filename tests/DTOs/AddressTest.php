@@ -3,6 +3,7 @@
 namespace Laraditz\Courier\Tests\DTOs;
 
 use Laraditz\Courier\DTOs\Shared\Address;
+use Laraditz\Courier\DTOs\Shared\Location;
 use Laraditz\Courier\Tests\TestCase;
 
 class AddressTest extends TestCase
@@ -70,5 +71,33 @@ class AddressTest extends TestCase
 
         $this->expectException(\Error::class);
         $address->name = 'Mutated'; // should throw — readonly
+    }
+
+    public function test_lat_lng_default_null(): void
+    {
+        $address = new Address('Name', null, null, 'Line 1', null, null, 'KL', 'WP', '50000', 'MY');
+        $this->assertNull($address->lat);
+        $this->assertNull($address->lng);
+    }
+
+    public function test_lat_lng_can_be_set(): void
+    {
+        $address = new Address('Name', null, null, 'Line 1', null, null, 'KL', 'WP', '50000', 'MY', lat: 3.1390, lng: 101.6869);
+        $this->assertSame(3.1390, $address->lat);
+        $this->assertSame(101.6869, $address->lng);
+    }
+
+    public function test_location_lat_lng_default_null(): void
+    {
+        $loc = new Location('50000', 'KL', 'WP', 'MY');
+        $this->assertNull($loc->lat);
+        $this->assertNull($loc->lng);
+    }
+
+    public function test_location_lat_lng_can_be_set(): void
+    {
+        $loc = new Location('50000', 'KL', 'WP', 'MY', lat: 3.1390, lng: 101.6869);
+        $this->assertSame(3.1390, $loc->lat);
+        $this->assertSame(101.6869, $loc->lng);
     }
 }

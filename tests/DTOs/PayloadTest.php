@@ -58,13 +58,26 @@ class PayloadTest extends TestCase
     public function test_rate_payload(): void
     {
         $payload = new RatePayload(
-            origin: $this->makeLocation(),
+            origin:      $this->makeLocation(),
             destination: $this->makeLocation(),
-            parcel: $this->makeParcel(),
+            parcel:      $this->makeParcel(),
+            serviceCode: 'MOTORCYCLE',
         );
 
         $this->assertInstanceOf(Location::class, $payload->origin);
         $this->assertInstanceOf(Parcel::class, $payload->parcel);
+        $this->assertSame('MOTORCYCLE', $payload->serviceCode);
+    }
+
+    public function test_rate_payload_has_service_code(): void
+    {
+        $payload = new RatePayload(
+            origin: $this->makeLocation(),
+            destination: $this->makeLocation(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'MOTORCYCLE',
+        );
+        $this->assertSame('MOTORCYCLE', $payload->serviceCode);
     }
 
     public function test_availability_payload(): void
@@ -76,5 +89,30 @@ class PayloadTest extends TestCase
 
         $this->assertSame('MY', $payload->origin->country);
         $this->assertSame('MY', $payload->destination->country);
+    }
+
+    public function test_shipment_payload_scheduled_at_default_null(): void
+    {
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+        );
+        $this->assertNull($payload->scheduledAt);
+    }
+
+    public function test_shipment_payload_scheduled_at_can_be_set(): void
+    {
+        $at = \Carbon\Carbon::parse('2026-06-21 14:00:00');
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+            scheduledAt: $at,
+        );
+        $this->assertInstanceOf(\Carbon\Carbon::class, $payload->scheduledAt);
+        $this->assertTrue($payload->scheduledAt->eq($at));
     }
 }

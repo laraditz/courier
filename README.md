@@ -1,5 +1,9 @@
 # Laravel Courier
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/laraditz/courier.svg?style=flat-square)](https://packagist.org/packages/laraditz/courier)
+[![Total Downloads](https://img.shields.io/packagist/dt/laraditz/courier.svg?style=flat-square)](https://packagist.org/packages/laraditz/courier)
+[![License](https://img.shields.io/packagist/l/laraditz/courier.svg?style=flat-square)](./LICENSE.md)
+
 A unified interface for multiple courier and shipping carrier services in Laravel.
 
 ## Overview
@@ -30,6 +34,7 @@ php artisan vendor:publish --tag=courier-config
 | Package                                                                     | Carrier    |
 | --------------------------------------------------------------------------- | ---------- |
 | [laraditz/courier-sfexpress](https://github.com/laraditz/courier-sfexpress) | SF Express |
+| [laraditz/courier-lalamove](https://github.com/laraditz/courier-lalamove)   | Lalamove   |
 
 ## Configuration
 
@@ -69,28 +74,28 @@ return [
 
 ### Result DTOs
 
-| DTO                 | Key Properties                                                       |
-| ------------------- | -------------------------------------------------------------------- |
-| `ShipmentResult`    | `waybillNumber`, `status`, `estimatedDelivery`, `meta()`             |
-| `TrackingResult`    | `waybillNumber`, `status`, `estimatedDelivery`, `events[]`, `meta()` |
-| `TrackingEvent`     | `timestamp`, `location`, `description`, `status`                     |
-| `RateCollection`    | `items[]` → `RateOption`                                             |
-| `RateOption`        | `serviceCode`, `serviceName`, `price`, `currency`, `estimatedDays`   |
-| `CancelResult`      | `success`, `message`, `meta()`                                       |
-| `LabelResult`       | `waybillNumber`, `format`, `content`, `meta()`                       |
-| `ServiceCollection` | `items[]` → `ServiceOption`                                          |
-| `ServiceOption`     | `code`, `name`, `description`, `estimatedDays`                       |
+| DTO                 | Key Properties                                                               |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `ShipmentResult`    | `waybillNumber`, `status`, `estimatedDelivery`, `meta()`                     |
+| `TrackingResult`    | `waybillNumber`, `status`, `estimatedDelivery`, `events[]`, `meta()`         |
+| `TrackingEvent`     | `timestamp`, `location`, `description`, `status`                             |
+| `RateCollection`    | `items[]` → `RateOption`                                                     |
+| `RateOption`        | `serviceCode`, `serviceName`, `price`, `currency`, `estimatedDays`, `meta()` |
+| `CancelResult`      | `success`, `message`, `meta()`                                               |
+| `LabelResult`       | `waybillNumber`, `format`, `content`, `meta()`                               |
+| `ServiceCollection` | `items[]` → `ServiceOption`                                                  |
+| `ServiceOption`     | `code`, `name`, `description`, `estimatedDays`                               |
 
 ### Payload DTOs
 
-| DTO                   | Properties                                                                                           |
-| --------------------- | ---------------------------------------------------------------------------------------------------- |
-| `ShipmentPayload`     | `sender: Address`, `recipient: Address`, `parcel: Parcel`, `serviceCode: string`, `remarks: ?string` |
-| `RatePayload`         | `origin: Location`, `destination: Location`, `parcel: Parcel`                                        |
-| `AvailabilityPayload` | `origin: Location`, `destination: Location`                                                          |
-| `Address`             | `name`, `phone`, `email`, `line1`, `line2`, `line3`, `city`, `state`, `postcode`, `country`          |
-| `Location`            | `postcode`, `city`, `state`, `country`                                                               |
-| `Parcel`              | `weight`, `length`, `width`, `height`, `declaredValue`, `description`, `quantity`                    |
+| DTO                   | Properties                                                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `ShipmentPayload`     | `sender: Address`, `recipient: Address`, `parcel: Parcel`, `serviceCode: string`, `remarks: ?string`, `scheduledAt: ?Carbon` |
+| `RatePayload`         | `origin: Location`, `destination: Location`, `parcel: Parcel`, `serviceCode: string`                                         |
+| `AvailabilityPayload` | `origin: Location`, `destination: Location`                                                                                  |
+| `Address`             | `name`, `phone`, `email`, `line1`, `line2`, `line3`, `city`, `state`, `postcode`, `country`, `lat`, `lng`                    |
+| `Location`            | `postcode`, `city`, `state`, `country`, `lat`, `lng`                                                                         |
+| `Parcel`              | `weight`, `length`, `width`, `height`, `declaredValue`, `description`, `quantity`                                            |
 
 ---
 
@@ -198,6 +203,45 @@ $services = Courier::getAvailability(new AvailabilityPayload(
 Courier::driver('sfexpress')->track('MYIU1234715622');
 ```
 
+### Webhooks
+
+The package registers a `POST /courier/webhook/{driver}` route that drivers can use to receive carrier push notifications.
+
+To enable webhook support in a driver, implement the `HandlesWebhooks` interface:
+
+```php
+use Illuminate\Http\Request;
+use Laraditz\Courier\Contracts\HandlesWebhooks;
+
+class MyCarrierDriver implements CourierDriver, HandlesWebhooks
+{
+    public function verifyWebhook(Request $request): bool
+    {
+        // Validate the carrier's signature/token
+        return $request->header('X-Carrier-Token') === config('courier.drivers.mycarrier.webhook_secret');
+    }
+
+    public function handleWebhook(Request $request): void
+    {
+        // Process the carrier-specific payload
+    }
+}
+```
+
+When a valid webhook is received, the package fires a `WebhookReceived` event:
+
+```php
+use Laraditz\Courier\Events\WebhookReceived;
+
+// In your EventServiceProvider
+Event::listen(WebhookReceived::class, function (WebhookReceived $event) {
+    $event->driver;  // 'mycarrier'
+    $event->payload; // raw request data array
+});
+```
+
+Drivers that do not implement `HandlesWebhooks` return `404`. Requests that fail `verifyWebhook` return `401`.
+
 ### Testing
 
 Use `Courier::fake()` to mock courier calls in tests:
@@ -255,6 +299,8 @@ $this->app->make('courier')->extend('mycarrier', function ($app, $config) {
     return new MyCarrierDriver($config);
 });
 ```
+
+To receive push notifications from the carrier, also implement `Laraditz\Courier\Contracts\HandlesWebhooks`. See the [Webhooks](#webhooks) section for details.
 
 ## License
 
