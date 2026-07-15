@@ -88,6 +88,35 @@ class CourierFakeTest extends TestCase
         $fake->assertCancelled('SF1234567890');
     }
 
+    public function test_assert_cancelled_accepts_reference_param(): void
+    {
+        $fake = Courier::fake();
+
+        Courier::cancelShipment('SF1234567890', 'ORDER-001');
+
+        $fake->assertCancelled('SF1234567890');
+    }
+
+    public function test_get_shipment_returns_default_result(): void
+    {
+        $fake = Courier::fake();
+
+        $result = Courier::getShipment('ORDER-001');
+
+        $this->assertInstanceOf(ShipmentResult::class, $result);
+        $this->assertSame('FAKE-001', $result->waybillNumber);
+    }
+
+    public function test_get_shipment_returns_custom_response(): void
+    {
+        $customResult = new ShipmentResult('CUSTOM-002', 'pending', null);
+        $fake = Courier::fake(['getShipment' => $customResult]);
+
+        $result = Courier::getShipment('ORDER-001');
+
+        $this->assertSame('CUSTOM-002', $result->waybillNumber);
+    }
+
     public function test_assert_rates_fetched(): void
     {
         $fake = Courier::fake();
