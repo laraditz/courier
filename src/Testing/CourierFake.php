@@ -42,6 +42,14 @@ class CourierFake implements CourierDriver
             ?? new TrackingResult($trackingNumber, 'in_transit', null, []);
     }
 
+    public function getShipment(string $reference): ShipmentResult
+    {
+        $this->calls['getShipment'][] = $reference;
+
+        return $this->responses['getShipment']
+            ?? new ShipmentResult('FAKE-001', 'pending', null);
+    }
+
     public function getRates(RatePayload $payload): RateCollection
     {
         $this->calls['getRates'][] = $payload;
@@ -49,7 +57,7 @@ class CourierFake implements CourierDriver
         return $this->responses['getRates'] ?? new RateCollection([]);
     }
 
-    public function cancelShipment(string $waybillNumber): CancelResult
+    public function cancelShipment(string $waybillNumber, ?string $reference = null): CancelResult
     {
         $this->calls['cancelShipment'][] = $waybillNumber;
 
@@ -57,7 +65,7 @@ class CourierFake implements CourierDriver
             ?? new CancelResult(true, 'Cancelled');
     }
 
-    public function getLabel(string $waybillNumber): LabelResult
+    public function getLabel(string $waybillNumber, ?string $reference = null): LabelResult
     {
         $this->calls['getLabel'][] = $waybillNumber;
 
