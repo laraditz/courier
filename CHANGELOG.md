@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-07-15
+
+### Added
+
+- `getShipment()` method on the `CourierDriver` contract, letting drivers with an order-inquiry endpoint (e.g. J&T Express) look up a shipment by the caller's own reference.
+- Optional `reference` parameter on `cancelShipment()` and `getLabel()` for couriers whose cancel/label APIs key off the caller's reference rather than the waybill number.
+- Optional `reference` property on `ShipmentPayload` and `ShipmentResult`, so a caller-supplied (or driver-generated) order reference can be passed in and echoed back for later use.
+
+### Fixed
+
+- `CourierFake` and the `WebhookTest` driver double updated to conform to the expanded `CourierDriver` contract.
+
+## [1.0.2] - 2026-06-23
+
+### Added
+
+- Webhook infrastructure: `HandlesWebhooks` interface, `WebhookReceived` event, `WebhookController`, and `POST /courier/webhook/{driver}` route.
+- `serviceCode` on `RatePayload` and `meta()` on `RateOption`.
+- `lat`/`lng` on `Address` and `Location`, and `scheduledAt` on `ShipmentPayload`.
+
 ## [1.0.1] - 2026-06-19
 
 ### Added

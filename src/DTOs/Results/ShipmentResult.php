@@ -10,6 +10,7 @@ readonly class ShipmentResult
         public string $waybillNumber,
         public string $status,
         public ?Carbon $estimatedDelivery,
+        public ?string $reference = null,
         private array $meta = [],
     ) {}
 

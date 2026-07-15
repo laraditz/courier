@@ -15,5 +15,6 @@ readonly class ShipmentPayload
         public string $serviceCode,
         public ?string $remarks = null,
         public ?Carbon $scheduledAt = null,
+        public ?string $reference = null,
     ) {}
 }
