@@ -15,9 +15,10 @@ use Laraditz\Courier\DTOs\Results\TrackingResult;
 interface CourierDriver
 {
     public function createShipment(ShipmentPayload $payload): ShipmentResult;
+    public function getShipment(string $reference): ShipmentResult;
     public function track(string $trackingNumber): TrackingResult;
     public function getRates(RatePayload $payload): RateCollection;
-    public function cancelShipment(string $waybillNumber): CancelResult;
-    public function getLabel(string $waybillNumber): LabelResult;
+    public function cancelShipment(string $waybillNumber, ?string $reference = null): CancelResult;
+    public function getLabel(string $waybillNumber, ?string $reference = null): LabelResult;
     public function getAvailability(AvailabilityPayload $payload): ServiceCollection;
 }
