@@ -115,4 +115,27 @@ class PayloadTest extends TestCase
         $this->assertInstanceOf(\Carbon\Carbon::class, $payload->scheduledAt);
         $this->assertTrue($payload->scheduledAt->eq($at));
     }
+
+    public function test_shipment_payload_reference_optional(): void
+    {
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+        );
+        $this->assertNull($payload->reference);
+    }
+
+    public function test_shipment_payload_reference_can_be_set(): void
+    {
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+            reference: 'ORDER-001',
+        );
+        $this->assertSame('ORDER-001', $payload->reference);
+    }
 }
