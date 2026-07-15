@@ -33,6 +33,25 @@ class ResultTest extends TestCase
         $this->assertSame([], $result->meta());
     }
 
+    public function test_shipment_result_reference_optional(): void
+    {
+        $result = new ShipmentResult('SF001', 'pending', null);
+
+        $this->assertNull($result->reference);
+    }
+
+    public function test_shipment_result_reference_can_be_set(): void
+    {
+        $result = new ShipmentResult(
+            waybillNumber: 'SF001',
+            status: 'pending',
+            estimatedDelivery: null,
+            reference: 'ORDER-001',
+        );
+
+        $this->assertSame('ORDER-001', $result->reference);
+    }
+
     public function test_tracking_event(): void
     {
         $event = new TrackingEvent(
