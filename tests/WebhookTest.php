@@ -24,10 +24,11 @@ class WebhookTest extends TestCase
         $driver = new class($verifies) implements CourierDriver, HandlesWebhooks {
             public function __construct(private bool $verifies) {}
             public function createShipment(ShipmentPayload $p): ShipmentResult { throw new \RuntimeException; }
+            public function getShipment(string $r): ShipmentResult { throw new \RuntimeException; }
             public function track(string $t): TrackingResult { throw new \RuntimeException; }
             public function getRates(RatePayload $p): RateCollection { throw new \RuntimeException; }
-            public function cancelShipment(string $w): CancelResult { throw new \RuntimeException; }
-            public function getLabel(string $w): LabelResult { throw new \RuntimeException; }
+            public function cancelShipment(string $w, ?string $r = null): CancelResult { throw new \RuntimeException; }
+            public function getLabel(string $w, ?string $r = null): LabelResult { throw new \RuntimeException; }
             public function getAvailability(AvailabilityPayload $p): ServiceCollection { throw new \RuntimeException; }
             public function verifyWebhook(Request $request): bool { return $this->verifies; }
             public function handleWebhook(Request $request): void {}
