@@ -81,4 +81,18 @@ class WebhookTest extends TestCase
                 && $e->payload['event'] === 'order.status.updated';
         });
     }
+
+    public function test_successful_webhook_is_logged_as_processed(): void
+    {
+        $this->registerWebhookDriver(verifies: true);
+
+        $response = $this->postJson('/courier/webhook/test-webhook-driver', ['event' => 'order.status.updated']);
+        $response->assertStatus(200);
+
+        $log = CourierWebhookLog::first();
+        $this->assertNotNull($log);
+        $this->assertSame('test-webhook-driver', $log->driver);
+        $this->assertTrue($log->verified);
+        $this->assertSame('processed', $log->status);
+    }
 }

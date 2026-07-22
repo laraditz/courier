@@ -45,6 +45,14 @@ class WebhookController extends Controller
 
         $instance->handleWebhook($request);
 
+        $this->logWriter->record([
+            'driver' => $driver,
+            'headers' => $request->headers->all(),
+            'payload' => $request->all(),
+            'verified' => true,
+            'status' => 'processed',
+        ]);
+
         return response()->noContent(200);
     }
 }
