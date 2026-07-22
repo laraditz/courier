@@ -16,6 +16,7 @@ use Laraditz\Courier\DTOs\Results\ServiceCollection;
 use Laraditz\Courier\DTOs\Results\ShipmentResult;
 use Laraditz\Courier\DTOs\Results\TrackingResult;
 use Laraditz\Courier\Events\WebhookReceived;
+use Laraditz\Courier\Models\CourierWebhookLog;
 
 class WebhookTest extends TestCase
 {
@@ -40,6 +41,7 @@ class WebhookTest extends TestCase
     {
         $response = $this->postJson('/courier/webhook/nonexistent', []);
         $response->assertStatus(404);
+        $this->assertSame(0, CourierWebhookLog::count());
     }
 
     public function test_webhook_route_returns_404_when_driver_does_not_handle_webhooks(): void
@@ -49,6 +51,7 @@ class WebhookTest extends TestCase
 
         $response = $this->postJson('/courier/webhook/no-webhook-driver', []);
         $response->assertStatus(404);
+        $this->assertSame(0, CourierWebhookLog::count());
     }
 
     public function test_webhook_route_returns_401_when_verification_fails(): void
@@ -57,6 +60,12 @@ class WebhookTest extends TestCase
 
         $response = $this->postJson('/courier/webhook/test-webhook-driver', ['event' => 'test']);
         $response->assertStatus(401);
+
+        $log = CourierWebhookLog::first();
+        $this->assertNotNull($log);
+        $this->assertSame('test-webhook-driver', $log->driver);
+        $this->assertFalse($log->verified);
+        $this->assertSame('rejected', $log->status);
     }
 
     public function test_webhook_route_fires_generic_event_and_returns_200(): void
