@@ -5,6 +5,7 @@ namespace Laraditz\Courier\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Laraditz\Courier\Models\CourierApiLog;
+use Laraditz\Courier\Models\CourierWebhookLog;
 
 class PruneCourierLogsCommand extends Command
 {
@@ -25,6 +26,10 @@ class PruneCourierLogsCommand extends Command
         $cutoff = Carbon::now()->subDays($retentionDays);
 
         CourierApiLog::where('created_at', '<', $cutoff)->chunkById(500, function ($logs) {
+            $logs->each->delete();
+        });
+
+        CourierWebhookLog::where('created_at', '<', $cutoff)->chunkById(500, function ($logs) {
             $logs->each->delete();
         });
 

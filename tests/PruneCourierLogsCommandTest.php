@@ -4,6 +4,7 @@ namespace Laraditz\Courier\Tests;
 
 use Illuminate\Support\Carbon;
 use Laraditz\Courier\Models\CourierApiLog;
+use Laraditz\Courier\Models\CourierWebhookLog;
 
 class PruneCourierLogsCommandTest extends TestCase
 {
@@ -35,5 +36,29 @@ class PruneCourierLogsCommandTest extends TestCase
 
         $this->assertNull(CourierApiLog::find($old->id));
         $this->assertNotNull(CourierApiLog::find($recent->id));
+    }
+
+    public function test_prunes_webhook_logs_older_than_retention_days(): void
+    {
+        config(['courier.logging.retention_days' => 90]);
+
+        $old = CourierWebhookLog::create([
+            'driver' => 'sfexpress',
+            'verified' => true,
+            'status' => 'processed',
+            'created_at' => Carbon::now()->subDays(100),
+        ]);
+
+        $recent = CourierWebhookLog::create([
+            'driver' => 'sfexpress',
+            'verified' => true,
+            'status' => 'processed',
+            'created_at' => Carbon::now()->subDays(10),
+        ]);
+
+        $this->artisan('courier:prune-logs')->assertExitCode(0);
+
+        $this->assertNull(CourierWebhookLog::find($old->id));
+        $this->assertNotNull(CourierWebhookLog::find($recent->id));
     }
 }
