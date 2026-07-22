@@ -29,6 +29,13 @@ The service provider is auto-discovered. Publish the config:
 php artisan vendor:publish --tag=courier-config
 ```
 
+Publish and run the migrations to create the API/webhook log tables:
+
+```bash
+php artisan vendor:publish --tag=courier-migrations
+php artisan migrate
+```
+
 ## Available Drivers
 
 | Package                                                                       | Carrier         |
@@ -262,6 +269,84 @@ Event::listen(WebhookReceived::class, function (WebhookReceived $event) {
 ```
 
 Drivers that do not implement `HandlesWebhooks` return `404`. Requests that fail `verifyWebhook` return `401`.
+
+To associate an incoming webhook log with the shipment it relates to, a driver can also implement `ExtractsWebhookReference`:
+
+```php
+use Illuminate\Http\Request;
+use Laraditz\Courier\Contracts\ExtractsWebhookReference;
+
+class MyCarrierDriver implements CourierDriver, HandlesWebhooks, ExtractsWebhookReference
+{
+    public function extractWebhookReference(Request $request): array
+    {
+        return [
+            'reference' => $request->input('order_no'),
+            'waybillNumber' => $request->input('waybill_no'),
+        ];
+    }
+}
+```
+
+Extraction is best-effort — if it throws, the failure is swallowed and logging/processing continues without a reference.
+
+### Logging
+
+Every outbound API call made through `CourierHttpClient` and every inbound webhook request is recorded (see [Installation](#installation) for the migrations), giving you a full audit trail per shipment.
+
+Configure logging in `config/courier.php`:
+
+```php
+'logging' => [
+    'enabled' => env('COURIER_LOGGING_ENABLED', true),
+
+    // Days to keep logs for `courier:prune-logs`. Set to null to disable pruning.
+    'retention_days' => env('COURIER_LOGGING_RETENTION_DAYS', 90),
+
+    // Request/response keys whose values are redacted before being stored.
+    'redact' => [
+        'authorization',
+        'api_key',
+        'apikey',
+        'key',
+        'secret',
+        'token',
+        'password',
+    ],
+],
+```
+
+Query the logs directly via their models:
+
+```php
+use Laraditz\Courier\Models\CourierApiLog;
+use Laraditz\Courier\Models\CourierWebhookLog;
+
+CourierApiLog::forReference('ORDER-001')->get();
+CourierApiLog::forDriver('sfexpress')->failed()->get();
+
+CourierWebhookLog::forDriver('sfexpress')->processed()->get();
+CourierWebhookLog::rejected()->get();
+```
+
+| Model               | Scopes                                                    | Notes                                                                           |
+| ------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `CourierApiLog`     | `forReference`, `forDriver`, `successful`, `failed`        | One row per outbound HTTP call (request/response, duration, status)             |
+| `CourierWebhookLog` | `forReference`, `forDriver`, `processed`, `rejected`, `failed` | One row per inbound webhook (`status` is `processed`, `rejected`, or `failed`) |
+
+A write failure while logging is caught and reported to the default log channel — it never breaks the underlying courier call or webhook request.
+
+Prune logs older than `courier.logging.retention_days` (a no-op when it's `null`):
+
+```bash
+php artisan courier:prune-logs
+```
+
+Schedule it to run periodically in your app's console kernel or `routes/console.php`:
+
+```php
+Schedule::command('courier:prune-logs')->daily();
+```
 
 ### Testing
 
