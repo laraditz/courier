@@ -43,7 +43,20 @@ class WebhookController extends Controller
 
         event(new WebhookReceived($driver, $request->all()));
 
-        $instance->handleWebhook($request);
+        try {
+            $instance->handleWebhook($request);
+        } catch (\Throwable $e) {
+            $this->logWriter->record([
+                'driver' => $driver,
+                'headers' => $request->headers->all(),
+                'payload' => $request->all(),
+                'verified' => true,
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
 
         $this->logWriter->record([
             'driver' => $driver,

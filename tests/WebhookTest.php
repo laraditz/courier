@@ -37,6 +37,22 @@ class WebhookTest extends TestCase
         app('courier')->extend('test-webhook-driver', fn () => $driver);
     }
 
+    private function registerFailingWebhookDriver(): void
+    {
+        $driver = new class implements CourierDriver, HandlesWebhooks {
+            public function createShipment(ShipmentPayload $p): ShipmentResult { throw new \RuntimeException; }
+            public function getShipment(string $r): ShipmentResult { throw new \RuntimeException; }
+            public function track(string $t): TrackingResult { throw new \RuntimeException; }
+            public function getRates(RatePayload $p): RateCollection { throw new \RuntimeException; }
+            public function cancelShipment(string $w, ?string $r = null): CancelResult { throw new \RuntimeException; }
+            public function getLabel(string $w, ?string $r = null): LabelResult { throw new \RuntimeException; }
+            public function getAvailability(AvailabilityPayload $p): ServiceCollection { throw new \RuntimeException; }
+            public function verifyWebhook(Request $request): bool { return true; }
+            public function handleWebhook(Request $request): void { throw new \RuntimeException('processing blew up'); }
+        };
+        app('courier')->extend('failing-webhook-driver', fn () => $driver);
+    }
+
     public function test_webhook_route_returns_404_for_unknown_driver(): void
     {
         $response = $this->postJson('/courier/webhook/nonexistent', []);
@@ -94,5 +110,24 @@ class WebhookTest extends TestCase
         $this->assertSame('test-webhook-driver', $log->driver);
         $this->assertTrue($log->verified);
         $this->assertSame('processed', $log->status);
+    }
+
+    public function test_handle_webhook_exception_is_logged_as_failed_and_rethrown(): void
+    {
+        $this->registerFailingWebhookDriver();
+        $this->withoutExceptionHandling();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('processing blew up');
+
+        try {
+            $this->post('/courier/webhook/failing-webhook-driver', ['event' => 'test']);
+        } finally {
+            $log = CourierWebhookLog::first();
+            $this->assertNotNull($log);
+            $this->assertTrue($log->verified);
+            $this->assertSame('failed', $log->status);
+            $this->assertSame('processing blew up', $log->error_message);
+        }
     }
 }
