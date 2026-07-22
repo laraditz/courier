@@ -5,6 +5,7 @@ namespace Laraditz\Courier\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Laraditz\Courier\Contracts\ExtractsWebhookReference;
 use Laraditz\Courier\Contracts\HandlesWebhooks;
 use Laraditz\Courier\Events\WebhookReceived;
 use Laraditz\Courier\Exceptions\CourierException;
@@ -29,9 +30,15 @@ class WebhookController extends Controller
             abort(404);
         }
 
+        $reference = $instance instanceof ExtractsWebhookReference
+            ? $instance->extractWebhookReference($request)
+            : ['reference' => null, 'waybillNumber' => null];
+
         if (! $instance->verifyWebhook($request)) {
             $this->logWriter->record([
                 'driver' => $driver,
+                'reference' => $reference['reference'],
+                'waybill_number' => $reference['waybillNumber'],
                 'headers' => $request->headers->all(),
                 'payload' => $request->all(),
                 'verified' => false,
@@ -48,6 +55,8 @@ class WebhookController extends Controller
         } catch (\Throwable $e) {
             $this->logWriter->record([
                 'driver' => $driver,
+                'reference' => $reference['reference'],
+                'waybill_number' => $reference['waybillNumber'],
                 'headers' => $request->headers->all(),
                 'payload' => $request->all(),
                 'verified' => true,
@@ -60,6 +69,8 @@ class WebhookController extends Controller
 
         $this->logWriter->record([
             'driver' => $driver,
+            'reference' => $reference['reference'],
+            'waybill_number' => $reference['waybillNumber'],
             'headers' => $request->headers->all(),
             'payload' => $request->all(),
             'verified' => true,

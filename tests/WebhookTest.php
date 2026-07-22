@@ -37,6 +37,26 @@ class WebhookTest extends TestCase
         app('courier')->extend('test-webhook-driver', fn () => $driver);
     }
 
+    private function registerExtractingWebhookDriver(): void
+    {
+        $driver = new class implements CourierDriver, HandlesWebhooks, \Laraditz\Courier\Contracts\ExtractsWebhookReference {
+            public function createShipment(ShipmentPayload $p): ShipmentResult { throw new \RuntimeException; }
+            public function getShipment(string $r): ShipmentResult { throw new \RuntimeException; }
+            public function track(string $t): TrackingResult { throw new \RuntimeException; }
+            public function getRates(RatePayload $p): RateCollection { throw new \RuntimeException; }
+            public function cancelShipment(string $w, ?string $r = null): CancelResult { throw new \RuntimeException; }
+            public function getLabel(string $w, ?string $r = null): LabelResult { throw new \RuntimeException; }
+            public function getAvailability(AvailabilityPayload $p): ServiceCollection { throw new \RuntimeException; }
+            public function verifyWebhook(Request $request): bool { return true; }
+            public function handleWebhook(Request $request): void {}
+            public function extractWebhookReference(Request $request): array
+            {
+                return ['reference' => $request->input('ref'), 'waybillNumber' => $request->input('waybill')];
+            }
+        };
+        app('courier')->extend('extracting-webhook-driver', fn () => $driver);
+    }
+
     private function registerFailingWebhookDriver(): void
     {
         $driver = new class implements CourierDriver, HandlesWebhooks {
@@ -110,6 +130,28 @@ class WebhookTest extends TestCase
         $this->assertSame('test-webhook-driver', $log->driver);
         $this->assertTrue($log->verified);
         $this->assertSame('processed', $log->status);
+    }
+
+    public function test_reference_extracted_when_driver_implements_contract(): void
+    {
+        $this->registerExtractingWebhookDriver();
+
+        $this->postJson('/courier/webhook/extracting-webhook-driver', ['ref' => 'REF-1', 'waybill' => 'WB-1']);
+
+        $log = CourierWebhookLog::first();
+        $this->assertSame('REF-1', $log->reference);
+        $this->assertSame('WB-1', $log->waybill_number);
+    }
+
+    public function test_reference_stays_null_when_driver_does_not_implement_contract(): void
+    {
+        $this->registerWebhookDriver(verifies: true);
+
+        $this->postJson('/courier/webhook/test-webhook-driver', ['event' => 'test']);
+
+        $log = CourierWebhookLog::first();
+        $this->assertNull($log->reference);
+        $this->assertNull($log->waybill_number);
     }
 
     public function test_handle_webhook_exception_is_logged_as_failed_and_rethrown(): void
