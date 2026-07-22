@@ -22,4 +22,24 @@ class CourierApiLog extends Model
         'successful' => 'boolean',
         'created_at' => 'datetime',
     ];
+
+    public function scopeForReference($query, string $reference)
+    {
+        return $query->where('reference', $reference);
+    }
+
+    public function scopeForDriver($query, string $driver)
+    {
+        return $query->where('driver', $driver);
+    }
+
+    public function scopeSuccessful($query)
+    {
+        return $query->where('successful', true);
+    }
+
+    public function scopeFailed($query)
+    {
+        return $query->where('successful', false);
+    }
 }
