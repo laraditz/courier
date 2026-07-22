@@ -57,6 +57,26 @@ class WebhookTest extends TestCase
         app('courier')->extend('extracting-webhook-driver', fn () => $driver);
     }
 
+    private function registerThrowingExtractorWebhookDriver(): void
+    {
+        $driver = new class implements CourierDriver, HandlesWebhooks, \Laraditz\Courier\Contracts\ExtractsWebhookReference {
+            public function createShipment(ShipmentPayload $p): ShipmentResult { throw new \RuntimeException; }
+            public function getShipment(string $r): ShipmentResult { throw new \RuntimeException; }
+            public function track(string $t): TrackingResult { throw new \RuntimeException; }
+            public function getRates(RatePayload $p): RateCollection { throw new \RuntimeException; }
+            public function cancelShipment(string $w, ?string $r = null): CancelResult { throw new \RuntimeException; }
+            public function getLabel(string $w, ?string $r = null): LabelResult { throw new \RuntimeException; }
+            public function getAvailability(AvailabilityPayload $p): ServiceCollection { throw new \RuntimeException; }
+            public function verifyWebhook(Request $request): bool { return true; }
+            public function handleWebhook(Request $request): void {}
+            public function extractWebhookReference(Request $request): array
+            {
+                throw new \RuntimeException('extraction blew up');
+            }
+        };
+        app('courier')->extend('throwing-extractor-webhook-driver', fn () => $driver);
+    }
+
     private function registerFailingWebhookDriver(): void
     {
         $driver = new class implements CourierDriver, HandlesWebhooks {
@@ -150,6 +170,20 @@ class WebhookTest extends TestCase
         $this->postJson('/courier/webhook/test-webhook-driver', ['event' => 'test']);
 
         $log = CourierWebhookLog::first();
+        $this->assertNull($log->reference);
+        $this->assertNull($log->waybill_number);
+    }
+
+    public function test_extraction_failure_does_not_block_logging_or_response(): void
+    {
+        $this->registerThrowingExtractorWebhookDriver();
+
+        $response = $this->postJson('/courier/webhook/throwing-extractor-webhook-driver', ['event' => 'test']);
+        $response->assertStatus(200);
+
+        $log = CourierWebhookLog::first();
+        $this->assertNotNull($log);
+        $this->assertSame('processed', $log->status);
         $this->assertNull($log->reference);
         $this->assertNull($log->waybill_number);
     }

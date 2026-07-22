@@ -30,9 +30,15 @@ class WebhookController extends Controller
             abort(404);
         }
 
-        $reference = $instance instanceof ExtractsWebhookReference
-            ? $instance->extractWebhookReference($request)
-            : ['reference' => null, 'waybillNumber' => null];
+        $reference = ['reference' => null, 'waybillNumber' => null];
+
+        if ($instance instanceof ExtractsWebhookReference) {
+            try {
+                $reference = $instance->extractWebhookReference($request);
+            } catch (\Throwable) {
+                // Extraction is best-effort; a failure here must not block logging or the response.
+            }
+        }
 
         if (! $instance->verifyWebhook($request)) {
             $this->logWriter->record([
