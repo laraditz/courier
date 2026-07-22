@@ -61,4 +61,25 @@ class PruneCourierLogsCommandTest extends TestCase
         $this->assertNull(CourierWebhookLog::find($old->id));
         $this->assertNotNull(CourierWebhookLog::find($recent->id));
     }
+
+    public function test_noops_when_retention_days_is_null(): void
+    {
+        config(['courier.logging.retention_days' => null]);
+
+        $old = CourierApiLog::create([
+            'driver' => 'sfexpress',
+            'action' => 'createShipment',
+            'method' => 'POST',
+            'url' => 'https://api.example.com',
+            'duration_ms' => 10,
+            'successful' => true,
+            'created_at' => Carbon::now()->subDays(1000),
+        ]);
+
+        $this->artisan('courier:prune-logs')
+            ->expectsOutputToContain('Retention is disabled')
+            ->assertExitCode(0);
+
+        $this->assertNotNull(CourierApiLog::find($old->id));
+    }
 }
