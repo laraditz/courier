@@ -138,6 +138,18 @@ class WebhookTest extends TestCase
         });
     }
 
+    public function test_webhook_payload_redaction_is_applied(): void
+    {
+        config(['courier.logging.redact' => ['secret']]);
+        $this->registerWebhookDriver(verifies: true);
+
+        $this->postJson('/courier/webhook/test-webhook-driver', ['event' => 'test', 'secret' => 'top-secret']);
+
+        $log = CourierWebhookLog::first();
+        $this->assertSame('[REDACTED]', $log->payload['secret']);
+        $this->assertSame('test', $log->payload['event']);
+    }
+
     public function test_successful_webhook_is_logged_as_processed(): void
     {
         $this->registerWebhookDriver(verifies: true);
