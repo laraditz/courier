@@ -11,4 +11,20 @@ return [
             'sandbox' => env('SFEXPRESS_SANDBOX', false),
         ],
     ],
+
+    'logging' => [
+        'enabled' => env('COURIER_LOGGING_ENABLED', true),
+
+        'retention_days' => env('COURIER_LOGGING_RETENTION_DAYS', 90),
+
+        'redact' => [
+            'authorization',
+            'api_key',
+            'apikey',
+            'key',
+            'secret',
+            'token',
+            'password',
+        ],
+    ],
 ];

@@ -11,4 +11,9 @@ class TestCase extends Orchestra
     {
         return [CourierServiceProvider::class];
     }
+
+    protected function defineDatabaseMigrations(): void
+    {
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+    }
 }
