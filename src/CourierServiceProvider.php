@@ -27,6 +27,10 @@ class CourierServiceProvider extends ServiceProvider
                 __DIR__.'/../database/migrations/2026_07_22_000001_create_courier_api_logs_table.php' => database_path('migrations/2026_07_22_000001_create_courier_api_logs_table.php'),
                 __DIR__.'/../database/migrations/2026_07_22_000002_create_courier_webhook_logs_table.php' => database_path('migrations/2026_07_22_000002_create_courier_webhook_logs_table.php'),
             ], 'courier-migrations');
+
+            $this->commands([
+                \Laraditz\Courier\Console\Commands\PruneCourierLogsCommand::class,
+            ]);
         }
     }
 }
