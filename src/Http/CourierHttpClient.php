@@ -2,6 +2,7 @@
 
 namespace Laraditz\Courier\Http;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Laraditz\Courier\Logging\ApiLogWriter;
@@ -66,14 +67,20 @@ class CourierHttpClient
 
         $start = microtime(true);
 
-        $response = Http::withHeaders($headers)->{$method}($url, $data);
+        try {
+            $response = Http::withHeaders($headers)->{$method}($url, $data);
+        } catch (ConnectionException $e) {
+            $this->log($method, $url, $headers, $data, null, (int) round((microtime(true) - $start) * 1000), $e);
+
+            throw $e;
+        }
 
         $this->log($method, $url, $headers, $data, $response, (int) round((microtime(true) - $start) * 1000));
 
         return $response;
     }
 
-    private function log(string $method, string $url, array $headers, array $data, Response $response, int $durationMs): void
+    private function log(string $method, string $url, array $headers, array $data, ?Response $response, int $durationMs, ?ConnectionException $exception = null): void
     {
         if (! config('courier.logging.enabled', true)) {
             return;
@@ -88,11 +95,12 @@ class CourierHttpClient
             'url' => $url,
             'request_headers' => $headers,
             'request_body' => $data,
-            'status_code' => $response->status(),
-            'response_headers' => $response->headers(),
-            'response_body' => $response->body(),
+            'status_code' => $response?->status(),
+            'response_headers' => $response?->headers() ?? [],
+            'response_body' => $response?->body(),
             'duration_ms' => $durationMs,
-            'successful' => $response->successful(),
+            'successful' => $response?->successful() ?? false,
+            'error_message' => $exception?->getMessage(),
         ]);
     }
 
