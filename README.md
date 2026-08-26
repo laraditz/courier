@@ -78,6 +78,7 @@ return [
 | `cancelShipment`  | `string $waybillNumber, ?string $reference = null` | `CancelResult`      | Cancel an existing shipment                                |
 | `getLabel`        | `string $waybillNumber, ?string $reference = null` | `LabelResult`       | Retrieve the shipping label (PDF bytes or ZPL)            |
 | `getAvailability` | `AvailabilityPayload $payload`                     | `ServiceCollection` | List services available between two locations              |
+| `getDeliveryModes` | —                                                  | `DeliveryMode[]`    | Which delivery mode(s) this driver supports — `OnDemand`, `Scheduled`, or both |
 
 > **Driver support:** Not all drivers implement every method. Calling an unsupported method throws `Laraditz\Courier\Exceptions\UnsupportedOperationException`. Check the driver's documentation for which methods are available.
 >
@@ -96,6 +97,8 @@ return [
 | `LabelResult`       | `waybillNumber`, `format`, `content`, `meta()`                               |
 | `ServiceCollection` | `items[]` → `ServiceOption`                                                  |
 | `ServiceOption`     | `code`, `name`, `description`, `estimatedDays`                               |
+| `QuotationResult`   | `quotationId`, `price`, `currency`, `expiresAt`, `meta()`                    |
+| `DriverLocationResult` | `driverId`, `lat`, `lng`, `updatedAt`, `meta()`                           |
 
 ### Payload DTOs
 
@@ -290,6 +293,42 @@ class MyCarrierDriver implements CourierDriver, HandlesWebhooks, ExtractsWebhook
 
 Extraction is best-effort — if it throws, the failure is swallowed and logging/processing continues without a reference.
 
+### On-Demand Driver Capabilities
+
+Every driver declares which delivery mode(s) it supports via `getDeliveryModes(): DeliveryMode[]`:
+
+```php
+use Laraditz\Courier\Enums\DeliveryMode;
+
+Courier::driver('lalamove')->getDeliveryModes(); // [DeliveryMode::OnDemand]
+Courier::driver('jt-express')->getDeliveryModes(); // [DeliveryMode::Scheduled]
+```
+
+`DeliveryMode::OnDemand` means instant/live-driver dispatch (e.g. Lalamove); `DeliveryMode::Scheduled` means next-day/express delivery with a fixed pickup and drop-off. A driver that supports both returns both cases in the array.
+
+On-demand drivers can optionally implement these capability interfaces, checked the same way as `HandlesWebhooks` — via `instanceof`:
+
+| Interface | Method | Returns |
+| --- | --- | --- |
+| `LooksUpQuotations` | `getQuotation(string $quotationId)` | `QuotationResult` |
+| `ManagesAssignedDriver` | `removeDriver(string $orderId, string $driverId)` | `void` |
+| `TracksDriverLocation` | `getDriverLocation(string $orderId, string $driverId)` | `DriverLocationResult` |
+| `SupportsOrderEditing` | `editOrder(string $orderId, Address[] $stops)` | `ShipmentResult` |
+
+```php
+use Laraditz\Courier\Contracts\TracksDriverLocation;
+
+$driver = Courier::driver('lalamove');
+
+if ($driver instanceof TracksDriverLocation) {
+    $location = $driver->getDriverLocation($orderId, $driverId);
+    $location->lat;
+    $location->lng;
+}
+```
+
+None of these are required — a driver with no live-tracking or quotation-lookup endpoint simply doesn't implement the corresponding interface, and calling code checks `instanceof` before relying on it, exactly like `HandlesWebhooks`.
+
 ### Logging
 
 Every outbound API call made through `CourierHttpClient` and every inbound webhook request is recorded (see [Installation](#installation) for the migrations), giving you a full audit trail per shipment.
@@ -409,7 +448,11 @@ $this->app->make('courier')->extend('mycarrier', function ($app, $config) {
 });
 ```
 
+`getDeliveryModes(): DeliveryMode[]` is part of `CourierDriver` and must be implemented — return `[DeliveryMode::OnDemand]`, `[DeliveryMode::Scheduled]`, or both.
+
 To receive push notifications from the carrier, also implement `Laraditz\Courier\Contracts\HandlesWebhooks`. See the [Webhooks](#webhooks) section for details.
+
+For on-demand carriers (live driver dispatch, quotations, etc.), optionally implement `LooksUpQuotations`, `ManagesAssignedDriver`, `TracksDriverLocation`, and/or `SupportsOrderEditing`. See [On-Demand Driver Capabilities](#on-demand-driver-capabilities) for details.
 
 ## License
 
