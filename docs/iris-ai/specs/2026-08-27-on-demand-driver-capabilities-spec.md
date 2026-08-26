@@ -18,7 +18,7 @@ This is core-package scope only. `courier-lalamove`, `courier-jt-express`, and `
 **Delivery mode**
 - FR-01: `Laraditz\Courier\Enums\DeliveryMode` is a string-backed enum with cases `OnDemand = 'on_demand'` and `Scheduled = 'scheduled'`.
 - FR-02: `CourierDriver::getDeliveryModes(): array` is added as a required method, returning a non-empty array of `DeliveryMode` cases. A driver supporting both models (e.g. a future hybrid courier) returns both cases in the array; there is no combined "both" enum case.
-- FR-03: `CourierFake::getDeliveryModes()` and the inline test driver in `tests/WebhookTest.php` are updated to satisfy the new interface (return `[DeliveryMode::Scheduled]` unless a test specifically needs otherwise).
+- FR-03: `CourierFake::getDeliveryModes()` and each of the four anonymous test-driver classes in `tests/WebhookTest.php` (`registerWebhookDriver`, `registerExtractingWebhookDriver`, `registerThrowingExtractorWebhookDriver`, `registerFailingWebhookDriver`) are updated to satisfy the new interface (return `[DeliveryMode::Scheduled]` unless a test specifically needs otherwise).
 
 **New optional capability interfaces** (`src/Contracts/`, checked via `instanceof` by calling code — no core code path currently needs to check these itself)
 - FR-04: `LooksUpQuotations::getQuotation(string $quotationId): QuotationResult` — fetch a previously-created quotation's details.
@@ -56,7 +56,7 @@ Add to `CHANGELOG.md`, above `[1.2.0]`:
 ```
 
 ## Testing
-- `CourierFake` and the `tests/WebhookTest.php` inline driver must be updated or all existing tests using them fail to compile (PHP fatal error: class does not implement interface). This is not optional — it's required just to keep the existing test suite runnable.
+- `CourierFake` and all four anonymous test-driver classes in `tests/WebhookTest.php` must be updated or all existing tests using them fail to compile (PHP fatal error: class does not implement interface). This is not optional — it's required just to keep the existing test suite runnable.
 - New unit tests for `QuotationResult`/`DriverLocationResult` construction and `meta()` accessors, matching the existing DTO test style (see `tests/` for `RateOption`/`ShipmentResult` equivalents if present, otherwise simple constructor/property assertions).
 - New unit test asserting `DeliveryMode` has exactly the two documented cases (guards against silent case additions bypassing this spec's design decision).
 - No integration test is needed for the four new interfaces themselves (they have no implementer in this repo, and no core code path calls them) — coverage lives in whichever driver package implements them.
