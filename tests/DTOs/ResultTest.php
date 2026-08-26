@@ -3,6 +3,7 @@
 namespace Laraditz\Courier\Tests\DTOs;
 
 use Carbon\Carbon;
+use Laraditz\Courier\DTOs\Results\QuotationResult;
 use Laraditz\Courier\DTOs\Results\ShipmentResult;
 use Laraditz\Courier\DTOs\Results\TrackingEvent;
 use Laraditz\Courier\DTOs\Results\TrackingResult;
@@ -179,5 +180,30 @@ class ResultTest extends TestCase
         );
         $this->assertSame('abc123', $option->meta()['quotation_id']);
         $this->assertSame('2026-06-20T10:05:00Z', $option->meta()['expires_at']);
+    }
+
+    public function test_quotation_result(): void
+    {
+        $result = new QuotationResult(
+            quotationId: 'QUO-001',
+            price: 12.50,
+            currency: 'MYR',
+            expiresAt: Carbon::parse('2026-06-20T10:05:00Z'),
+            meta: ['stops' => [['stopId' => 's1'], ['stopId' => 's2']]],
+        );
+
+        $this->assertSame('QUO-001', $result->quotationId);
+        $this->assertSame(12.50, $result->price);
+        $this->assertSame('MYR', $result->currency);
+        $this->assertInstanceOf(Carbon::class, $result->expiresAt);
+        $this->assertSame(['stops' => [['stopId' => 's1'], ['stopId' => 's2']]], $result->meta());
+    }
+
+    public function test_quotation_result_expires_at_nullable_and_meta_defaults_empty(): void
+    {
+        $result = new QuotationResult('QUO-002', 5.00, 'MYR', null);
+
+        $this->assertNull($result->expiresAt);
+        $this->assertSame([], $result->meta());
     }
 }
