@@ -11,6 +11,7 @@ use Laraditz\Courier\DTOs\Results\RateCollection;
 use Laraditz\Courier\DTOs\Results\ServiceCollection;
 use Laraditz\Courier\DTOs\Results\ShipmentResult;
 use Laraditz\Courier\DTOs\Results\TrackingResult;
+use Laraditz\Courier\Enums\DeliveryMode;
 
 interface CourierDriver
 {
@@ -21,4 +22,9 @@ interface CourierDriver
     public function cancelShipment(string $waybillNumber, ?string $reference = null): CancelResult;
     public function getLabel(string $waybillNumber, ?string $reference = null): LabelResult;
     public function getAvailability(AvailabilityPayload $payload): ServiceCollection;
+
+    /**
+     * @return DeliveryMode[]
+     */
+    public function getDeliveryModes(): array;
 }

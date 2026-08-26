@@ -13,6 +13,7 @@ use Laraditz\Courier\DTOs\Results\RateCollection;
 use Laraditz\Courier\DTOs\Results\ServiceCollection;
 use Laraditz\Courier\DTOs\Results\ShipmentResult;
 use Laraditz\Courier\DTOs\Results\TrackingResult;
+use Laraditz\Courier\Enums\DeliveryMode;
 use PHPUnit\Framework\Assert as PHPUnit;
 
 class CourierFake implements CourierDriver
@@ -78,6 +79,11 @@ class CourierFake implements CourierDriver
         $this->calls['getAvailability'][] = $payload;
 
         return $this->responses['getAvailability'] ?? new ServiceCollection([]);
+    }
+
+    public function getDeliveryModes(): array
+    {
+        return [DeliveryMode::Scheduled];
     }
 
     public function assertShipmentCreated(int|Closure|null $countOrCallback = null): void
