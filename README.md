@@ -351,9 +351,47 @@ Configure logging in `config/courier.php`:
         'secret',
         'token',
         'password',
+        'appkey',
+        'appsecret',
+        'signature',
+        'digest',
+        'apiaccount',
     ],
 ],
 ```
+
+Matching is on exact (case-insensitive) key names, so add the specific keys your driver sends —
+`apikey` does **not** cover `appKey`. Two limits worth knowing:
+
+- The `url` column is stored verbatim and is **never** redacted. Never put a credential in a URL string; pass it as a query array or header instead.
+- Redaction does not descend into JSON held inside a string value — a `['bizContent' => '{"password":"..."}']` body keeps its nested contents as-is.
+
+#### Making requests from a driver
+
+Drivers make their HTTP calls through `CourierHttpClient` — that wrapper is what produces the
+`courier_api_logs` rows. `forLog()` supplies the log context and is the only way to reach the verb
+methods; calling `get`/`post`/`put`/`patch`/`delete` without it throws a `LogicException`:
+
+```php
+use Laraditz\Courier\Http\CourierHttpClient;
+
+$response = (new CourierHttpClient())
+    ->forLog(driver: 'acme', action: 'create_order', reference: 'ORDER-001', waybillNumber: 'ACME123')
+    ->post('https://api.acme.test/v1/orders', ['weight' => 1.5], ['X-Api-Key' => $key]);
+```
+
+Verb methods take `(string $url, array $data = [], array $headers = [])` and return the underlying
+`Illuminate\Http\Client\Response` untouched. Two optional modifiers:
+
+```php
+->asForm()      // send the body form-encoded instead of as JSON
+->timeout(15)   // override the request timeout in seconds (Laravel's default of 30 applies otherwise)
+```
+
+> **`forLog()` mutates the instance and returns it — it does not clone.** Once called, the instance
+> stays configured, so a later request that forgets `forLog()` will not throw: it logs against the
+> *previous* call's `action`, `reference` and `waybill_number`. Call `forLog()` on every request, or
+> construct a fresh `CourierHttpClient` per request. Do not hold a configured instance as state.
 
 Query the logs directly via their models:
 

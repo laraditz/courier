@@ -9,11 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `CourierHttpClient::asForm()` — sends the request body form-encoded instead of as JSON, for drivers whose API expects `application/x-www-form-urlencoded`.
+- `CourierHttpClient::timeout(int|float $seconds)` — overrides the request timeout; Laravel's default of 30 seconds applies when unset.
+- README now documents `CourierHttpClient` for driver authors (`forLog()`, the verb methods, `asForm()`, `timeout()`), including that `forLog()` mutates the instance rather than cloning it.
 - `DeliveryMode` enum (`OnDemand`, `Scheduled`) and `CourierDriver::getDeliveryModes(): array`, letting calling code query whether a driver supports on-demand delivery, scheduled delivery, or both.
 - Four optional capability interfaces for on-demand drivers: `LooksUpQuotations`, `ManagesAssignedDriver`, `TracksDriverLocation`, `SupportsOrderEditing`, with matching `QuotationResult` and `DriverLocationResult` DTOs.
 
 ### Changed
 
+- Five keys added to the default `courier.logging.redact` list: `appkey`, `appsecret`, `signature`, `digest`, `apiaccount`. Redaction matches exact key names, so `apikey` did not cover `appKey`/`appSecret` — these were being stored unredacted by any driver sending them.
 - **Breaking:** `CourierDriver::getDeliveryModes()` is a new required method. Existing driver implementations (including `courier-lalamove`, `courier-jt-express`, `courier-sfexpress`) must implement it before upgrading to this version, despite the minor version number.
 
 ## [1.2.0] - 2026-07-22

@@ -25,6 +25,11 @@ return [
             'secret',
             'token',
             'password',
+            'appkey',
+            'appsecret',
+            'signature',
+            'digest',
+            'apiaccount',
         ],
     ],
 ];

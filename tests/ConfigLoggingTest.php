@@ -9,7 +9,20 @@ class ConfigLoggingTest extends TestCase
         $this->assertSame(true, config('courier.logging.enabled'));
         $this->assertSame(90, config('courier.logging.retention_days'));
         $this->assertSame(
-            ['authorization', 'api_key', 'apikey', 'key', 'secret', 'token', 'password'],
+            [
+                'authorization',
+                'api_key',
+                'apikey',
+                'key',
+                'secret',
+                'token',
+                'password',
+                'appkey',
+                'appsecret',
+                'signature',
+                'digest',
+                'apiaccount',
+            ],
             config('courier.logging.redact')
         );
     }
