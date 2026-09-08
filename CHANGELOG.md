@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README now documents `CourierHttpClient` for driver authors (`forLog()`, the verb methods, `asForm()`, `timeout()`), including that `forLog()` mutates the instance rather than cloning it.
 - `DeliveryMode` enum (`OnDemand`, `Scheduled`) and `CourierDriver::getDeliveryModes(): array`, letting calling code query whether a driver supports on-demand delivery, scheduled delivery, or both.
 - Four optional capability interfaces for on-demand drivers: `LooksUpQuotations`, `ManagesAssignedDriver`, `TracksDriverLocation`, `SupportsOrderEditing`, with matching `QuotationResult` and `DriverLocationResult` DTOs.
+- `ShipmentPayload::$meta` (`array`, defaults to `[]`) — an optional last constructor argument carrying driver-specific options that have no place in the normalized payload, e.g. `['isPODEnabled' => true]`. Existing positional callers are unaffected, and drivers that do not read it send an unchanged request body.
+- `PodResult` DTO (`status`, `imageUrl: ?string`, `deliveredAt: ?Carbon`) for drivers that expose proof of delivery. `status` is a plain string rather than an enum so an undocumented carrier status never throws.
 
 ### Changed
 

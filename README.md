@@ -99,17 +99,20 @@ return [
 | `ServiceOption`     | `code`, `name`, `description`, `estimatedDays`                               |
 | `QuotationResult`   | `quotationId`, `price`, `currency`, `expiresAt`, `meta()`                    |
 | `DriverLocationResult` | `driverId`, `lat`, `lng`, `updatedAt`, `meta()`                           |
+| `PodResult`         | `status`, `imageUrl: ?string`, `deliveredAt: ?Carbon`                        |
 
 ### Payload DTOs
 
 | DTO                   | Properties                                                                                                                   |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `ShipmentPayload`     | `sender: Address`, `recipient: Address`, `parcel: Parcel`, `serviceCode: string`, `remarks: ?string`, `scheduledAt: ?Carbon`, `reference: ?string` |
+| `ShipmentPayload`     | `sender: Address`, `recipient: Address`, `parcel: Parcel`, `serviceCode: string`, `remarks: ?string`, `scheduledAt: ?Carbon`, `reference: ?string`, `meta: array` |
 | `RatePayload`         | `origin: Location`, `destination: Location`, `parcel: Parcel`, `serviceCode: string`                                         |
 | `AvailabilityPayload` | `origin: Location`, `destination: Location`                                                                                  |
 | `Address`             | `name`, `phone`, `email`, `line1`, `line2`, `line3`, `city`, `state`, `postcode`, `country`, `lat`, `lng`                    |
 | `Location`            | `postcode`, `city`, `state`, `country`, `lat`, `lng`                                                                         |
 | `Parcel`              | `weight`, `length`, `width`, `height`, `declaredValue`, `description`, `quantity`                                            |
+
+> **`ShipmentPayload::$meta`:** driver-specific options that have no place in the normalized payload — for example `['isPODEnabled' => true]` for a carrier that supports proof of delivery. A driver ignores keys it does not recognise, so populating `meta` never changes the request body of a driver that does not read it. Defaults to `[]`.
 
 ---
 

@@ -138,4 +138,50 @@ class PayloadTest extends TestCase
         );
         $this->assertSame('ORDER-001', $payload->reference);
     }
+
+    public function test_shipment_payload_meta_defaults_to_empty_array(): void
+    {
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+        );
+
+        $this->assertSame([], $payload->meta);
+    }
+
+    public function test_shipment_payload_meta_can_be_set(): void
+    {
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+            meta: ['isPODEnabled' => true],
+        );
+
+        $this->assertSame(['isPODEnabled' => true], $payload->meta);
+    }
+
+    public function test_shipment_payload_keeps_existing_positional_argument_order(): void
+    {
+        $at = \Carbon\Carbon::parse('2026-06-21 14:00:00');
+
+        $payload = new ShipmentPayload(
+            $this->makeAddress(),
+            $this->makeAddress(),
+            $this->makeParcel(),
+            'STANDARD',
+            'Fragile',
+            $at,
+            'ORDER-001',
+        );
+
+        $this->assertSame('STANDARD', $payload->serviceCode);
+        $this->assertSame('Fragile', $payload->remarks);
+        $this->assertTrue($payload->scheduledAt->eq($at));
+        $this->assertSame('ORDER-001', $payload->reference);
+        $this->assertSame([], $payload->meta);
+    }
 }

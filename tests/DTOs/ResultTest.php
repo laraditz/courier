@@ -4,6 +4,7 @@ namespace Laraditz\Courier\Tests\DTOs;
 
 use Carbon\Carbon;
 use Laraditz\Courier\DTOs\Results\DriverLocationResult;
+use Laraditz\Courier\DTOs\Results\PodResult;
 use Laraditz\Courier\DTOs\Results\QuotationResult;
 use Laraditz\Courier\DTOs\Results\ShipmentResult;
 use Laraditz\Courier\DTOs\Results\TrackingEvent;
@@ -231,5 +232,34 @@ class ResultTest extends TestCase
 
         $this->assertNull($result->updatedAt);
         $this->assertSame([], $result->meta());
+    }
+
+    public function test_pod_result(): void
+    {
+        $result = new PodResult(
+            status: 'DELIVERED',
+            imageUrl: 'https://cdn.example.com/pod/abc.jpg',
+            deliveredAt: Carbon::parse('2026-06-19 09:30:00'),
+        );
+
+        $this->assertSame('DELIVERED', $result->status);
+        $this->assertSame('https://cdn.example.com/pod/abc.jpg', $result->imageUrl);
+        $this->assertInstanceOf(Carbon::class, $result->deliveredAt);
+    }
+
+    public function test_pod_result_image_url_and_delivered_at_optional(): void
+    {
+        $result = new PodResult('PENDING');
+
+        $this->assertSame('PENDING', $result->status);
+        $this->assertNull($result->imageUrl);
+        $this->assertNull($result->deliveredAt);
+    }
+
+    public function test_pod_result_accepts_undocumented_status(): void
+    {
+        $result = new PodResult('SOMETHING_NEW');
+
+        $this->assertSame('SOMETHING_NEW', $result->status);
     }
 }
