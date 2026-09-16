@@ -4,6 +4,7 @@ namespace Laraditz\Courier\Tests;
 
 use Laraditz\Courier\Models\CourierWebhookLog;
 use Laraditz\Courier\Tests\Fixtures\ConfigurableWebhookDriver;
+use Laraditz\Courier\Tests\Fixtures\PlainWebhookDriver;
 
 class WebhookResponseContractTest extends TestCase
 {
@@ -12,6 +13,13 @@ class WebhookResponseContractTest extends TestCase
         app('courier')->extend($name, fn () => $driver);
 
         return $driver;
+    }
+
+    private function registerPlainDriver(string $name, bool $verifies): void
+    {
+        $driver = new PlainWebhookDriver(verifies: $verifies);
+
+        app('courier')->extend($name, fn () => $driver);
     }
 
     public function test_accepted_response_from_contract_driver_is_returned_verbatim(): void
@@ -60,5 +68,20 @@ class WebhookResponseContractTest extends TestCase
         $this->assertSame('rejecting-contract-driver', $log->driver);
         $this->assertFalse($log->verified);
         $this->assertSame('rejected', $log->status);
+    }
+
+    public function test_driver_without_contract_keeps_default_responses(): void
+    {
+        $this->registerPlainDriver('plain-accepting-driver', verifies: true);
+        $this->registerPlainDriver('plain-rejecting-driver', verifies: false);
+
+        // FR-04: empty 200, exactly as before the contract existed.
+        $accepted = $this->postJson('/courier/webhook/plain-accepting-driver', ['event' => 'test']);
+        $accepted->assertStatus(200);
+        $this->assertSame('', $accepted->getContent());
+
+        // FR-06: unchanged 401.
+        $rejected = $this->postJson('/courier/webhook/plain-rejecting-driver', ['event' => 'test']);
+        $rejected->assertStatus(401);
     }
 }
