@@ -84,4 +84,55 @@ class WebhookResponseContractTest extends TestCase
         $rejected = $this->postJson('/courier/webhook/plain-rejecting-driver', ['event' => 'test']);
         $rejected->assertStatus(401);
     }
+
+    public function test_contract_methods_are_called_only_on_their_own_path(): void
+    {
+        $accepting = $this->registerDriver('isolated-accepting-driver', new ConfigurableWebhookDriver(
+            verifies: true,
+        ));
+        $rejecting = $this->registerDriver('isolated-rejecting-driver', new ConfigurableWebhookDriver(
+            verifies: false,
+        ));
+
+        $this->postJson('/courier/webhook/isolated-accepting-driver', ['event' => 'test']);
+        $this->postJson('/courier/webhook/isolated-rejecting-driver', ['event' => 'test']);
+
+        $this->assertSame(['accepted'], $accepting->calls);
+        $this->assertSame(['rejected'], $rejecting->calls);
+    }
+
+    public function test_handle_webhook_exception_bypasses_contract(): void
+    {
+        $driver = $this->registerDriver('throwing-handler-driver', new ConfigurableWebhookDriver(
+            onHandle: fn () => throw new \RuntimeException('processing blew up'),
+        ));
+
+        $this->withoutExceptionHandling();
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('processing blew up');
+
+        try {
+            $this->postJson('/courier/webhook/throwing-handler-driver', ['event' => 'test']);
+        } finally {
+            // FR-10: the failed row is written and neither contract method runs.
+            $log = CourierWebhookLog::first();
+            $this->assertNotNull($log);
+            $this->assertSame('failed', $log->status);
+            $this->assertSame('processing blew up', $log->error_message);
+            $this->assertSame([], $driver->calls);
+        }
+    }
+
+    public function test_contract_response_exception_is_not_swallowed(): void
+    {
+        $this->registerDriver('throwing-response-driver', new ConfigurableWebhookDriver(
+            accepted: fn () => throw new \RuntimeException('ack builder blew up'),
+        ));
+
+        $this->withoutExceptionHandling();
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('ack builder blew up');
+
+        $this->postJson('/courier/webhook/throwing-response-driver', ['event' => 'test']);
+    }
 }
