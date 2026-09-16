@@ -52,6 +52,10 @@ class WebhookController extends Controller
                 'status' => 'rejected',
             ]);
 
+            if ($instance instanceof ProvidesWebhookResponse) {
+                return $instance->webhookRejectedResponse($request);
+            }
+
             abort(401);
         }
 
