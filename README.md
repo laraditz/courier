@@ -64,6 +64,12 @@ return [
             'sandbox'          => env('SFEXPRESS_SANDBOX', false),
         ],
     ],
+
+    'webhook' => [
+        // Inbound webhook requests per minute, per driver per IP.
+        // null disables throttling. See Webhooks → Webhook rate limiting.
+        'rate_limit' => env('COURIER_WEBHOOK_RATE_LIMIT', 60),
+    ],
 ];
 ```
 
@@ -274,7 +280,7 @@ Event::listen(WebhookReceived::class, function (WebhookReceived $event) {
 });
 ```
 
-Drivers that do not implement `HandlesWebhooks` return `404`. Requests that fail `verifyWebhook` return `401`.
+Drivers that do not implement `HandlesWebhooks` return `404`. Requests that fail `verifyWebhook` return `401` by default — a driver can shape that response itself, see [Shaping the webhook response](#shaping-the-webhook-response) below.
 
 To associate an incoming webhook log with the shipment it relates to, a driver can also implement `ExtractsWebhookReference`:
 
@@ -295,6 +301,80 @@ class MyCarrierDriver implements CourierDriver, HandlesWebhooks, ExtractsWebhook
 ```
 
 Extraction is best-effort — if it throws, the failure is swallowed and logging/processing continues without a reference.
+
+#### Shaping the webhook response
+
+By default the endpoint returns an empty `200` on success and a `401` on failed verification. Some carriers parse the response body and treat anything else as a failed push — J&T Express, for example, checks the body for `code == "1"` and retries until it sees it.
+
+A driver that needs to control what goes back on the wire implements `ProvidesWebhookResponse`:
+
+```php
+use Illuminate\Http\Request;
+use Laraditz\Courier\Contracts\ProvidesWebhookResponse;
+use Symfony\Component\HttpFoundation\Response;
+
+class MyCarrierDriver implements CourierDriver, HandlesWebhooks, ProvidesWebhookResponse
+{
+    public function webhookAcceptedResponse(Request $request): Response
+    {
+        return response()->json([
+            'code' => '1',
+            'msg' => 'success',
+            'data' => 'SUCCESS',
+            'requestId' => $request->input('requestId'),
+        ]);
+    }
+
+    public function webhookRejectedResponse(Request $request): Response
+    {
+        return response()->json([
+            'code' => '145003030',
+            'msg' => 'headers signature verification failed',
+        ], 401);
+    }
+}
+```
+
+Both methods return `Symfony\Component\HttpFoundation\Response` rather than `Illuminate\Http\Response`, so `response()->json()` is accepted — `JsonResponse` is a sibling of `Illuminate\Http\Response`, not a subclass.
+
+Notes:
+
+- The interface is optional. A driver that does not implement it keeps the empty `200` and the plain `401`, unchanged.
+- A rejected request is still logged before `webhookRejectedResponse()` is called, so shaping the response never costs you the audit row.
+- Neither method is called when `handleWebhook()` throws — that still surfaces as a `500`.
+- Exceptions thrown inside either method are **not** swallowed. A failure to build the ack is a real failure, and hiding it behind an empty `200` would put you straight back into the retry loop the contract exists to prevent.
+
+#### Webhook rate limiting
+
+The webhook route is throttled **per driver, per IP** — one carrier pushing hard cannot exhaust another carrier's allowance from the same address.
+
+```php
+// config/courier.php
+'webhook' => [
+    'rate_limit' => env('COURIER_WEBHOOK_RATE_LIMIT', 60),
+],
+```
+
+The default is 60 requests per minute. To give a single carrier more headroom without touching the others, set a per-driver override:
+
+```php
+'drivers' => [
+    'jtexpress' => [
+        // ...
+        'webhook' => ['rate_limit' => 300],
+    ],
+],
+```
+
+Resolution order is per-driver, then global, then the built-in default of 60. Setting either to `null` disables throttling for that scope:
+
+```php
+'webhook' => ['rate_limit' => null],   // no throttling at all
+```
+
+A value that is not a usable ceiling — `0`, a negative number, a non-numeric string — is treated as unconfigured and falls back to 60, so a typo cannot silently disable throttling or lock the endpoint out.
+
+Requests over the limit get Laravel's standard `429`. The rate limiter runs as middleware, before the controller, so `ProvidesWebhookResponse` cannot shape that response.
 
 ### On-Demand Driver Capabilities
 
@@ -491,7 +571,7 @@ $this->app->make('courier')->extend('mycarrier', function ($app, $config) {
 
 `getDeliveryModes(): DeliveryMode[]` is part of `CourierDriver` and must be implemented — return `[DeliveryMode::OnDemand]`, `[DeliveryMode::Scheduled]`, or both.
 
-To receive push notifications from the carrier, also implement `Laraditz\Courier\Contracts\HandlesWebhooks`. See the [Webhooks](#webhooks) section for details.
+To receive push notifications from the carrier, also implement `Laraditz\Courier\Contracts\HandlesWebhooks`. If the carrier parses your response body — many do — add `ProvidesWebhookResponse` so the driver controls what goes back on the wire. See the [Webhooks](#webhooks) section for details.
 
 For on-demand carriers (live driver dispatch, quotations, etc.), optionally implement `LooksUpQuotations`, `ManagesAssignedDriver`, `TracksDriverLocation`, and/or `SupportsOrderEditing`. See [On-Demand Driver Capabilities](#on-demand-driver-capabilities) for details.
 

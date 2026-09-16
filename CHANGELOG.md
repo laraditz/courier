@@ -16,11 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four optional capability interfaces for on-demand drivers: `LooksUpQuotations`, `ManagesAssignedDriver`, `TracksDriverLocation`, `SupportsOrderEditing`, with matching `QuotationResult` and `DriverLocationResult` DTOs.
 - `ShipmentPayload::$meta` (`array`, defaults to `[]`) — an optional last constructor argument carrying driver-specific options that have no place in the normalized payload, e.g. `['isPODEnabled' => true]`. Existing positional callers are unaffected, and drivers that do not read it send an unchanged request body.
 - `PodResult` DTO (`status`, `imageUrl: ?string`, `deliveredAt: ?Carbon`) for drivers that expose proof of delivery. `status` is a plain string rather than an enum so an undocumented carrier status never throws.
+- `ProvidesWebhookResponse` contract — an optional interface letting a driver shape the webhook endpoint's response on both exits (`webhookAcceptedResponse()`, `webhookRejectedResponse()`). Previously `WebhookController` hardcoded an empty `200` and a bare `abort(401)`, so a carrier that parses the ack body could not be satisfied by any driver. J&T Express checks the body for `code == "1"` and was recording every successfully handled push as a failed one. Both methods return `Symfony\Component\HttpFoundation\Response` so `response()->json()` is accepted. Fully additive — a driver that does not implement it gets byte-identical responses to before.
+- `courier.webhook.rate_limit` config (`COURIER_WEBHOOK_RATE_LIMIT`, default `60`), with an optional per-driver override at `courier.drivers.{driver}.webhook.rate_limit`. `null` at either level disables throttling; a value that is not a usable ceiling falls back to the default rather than disabling it or locking the endpoint out.
 
 ### Changed
 
+- The webhook route's throttle is now keyed per driver instead of per IP alone. `courier/webhook/{driver}` takes the driver as a route *parameter*, so Laravel's default signature (`domain|ip`) meant the 60/min ceiling was shared across every courier driver at once — one carrier's burst cost every other carrier its allowance, and the overflow 429s counted as failed pushes. The default ceiling is unchanged at 60/min, so no existing deployment's limit moves on upgrade; drivers simply stop competing for it. Applications whose published `config/courier.php` predates the new `webhook` block fall back to the same 60 automatically.
 - Five keys added to the default `courier.logging.redact` list: `appkey`, `appsecret`, `signature`, `digest`, `apiaccount`. Redaction matches exact key names, so `apikey` did not cover `appKey`/`appSecret` — these were being stored unredacted by any driver sending them.
 - **Breaking:** `CourierDriver::getDeliveryModes()` is a new required method. Existing driver implementations (including `courier-lalamove`, `courier-jt-express`, `courier-sfexpress`) must implement it before upgrading to this version, despite the minor version number.
+
+  This remains the *only* breaking change in 1.3.0. `ProvidesWebhookResponse` is opt-in via `instanceof` and adds no required method, and the throttle rework keeps the existing 60/min ceiling — a driver that changes nothing behaves exactly as it does today.
 
 ## [1.2.0] - 2026-07-22
 
