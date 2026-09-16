@@ -9,8 +9,8 @@
 | # | Group | Status | File |
 |---|---|---|---|
 | 1 | Response Contract | done | [2026-09-16-webhook-response-contract-plan-g1.md](2026-09-16-webhook-response-contract-plan-g1.md) |
-| 2 | Per-Driver Throttle | pending | [2026-09-16-webhook-response-contract-plan-g2.md](2026-09-16-webhook-response-contract-plan-g2.md) |
-| 3 | Documentation & Verification | pending | [2026-09-16-webhook-response-contract-plan-g3.md](2026-09-16-webhook-response-contract-plan-g3.md) |
+| 2 | Per-Driver Throttle | done | [2026-09-16-webhook-response-contract-plan-g2.md](2026-09-16-webhook-response-contract-plan-g2.md) |
+| 3 | Documentation & Verification | done | [2026-09-16-webhook-response-contract-plan-g3.md](2026-09-16-webhook-response-contract-plan-g3.md) |
 
 ## Self-Review Findings
 
