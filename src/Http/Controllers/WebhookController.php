@@ -3,13 +3,14 @@
 namespace Laraditz\Courier\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Laraditz\Courier\Contracts\ExtractsWebhookReference;
 use Laraditz\Courier\Contracts\HandlesWebhooks;
+use Laraditz\Courier\Contracts\ProvidesWebhookResponse;
 use Laraditz\Courier\Events\WebhookReceived;
 use Laraditz\Courier\Exceptions\CourierException;
 use Laraditz\Courier\Logging\WebhookLogWriter;
+use Symfony\Component\HttpFoundation\Response;
 
 class WebhookController extends Controller
 {
@@ -51,6 +52,10 @@ class WebhookController extends Controller
                 'status' => 'rejected',
             ]);
 
+            if ($instance instanceof ProvidesWebhookResponse) {
+                return $instance->webhookRejectedResponse($request);
+            }
+
             abort(401);
         }
 
@@ -83,6 +88,8 @@ class WebhookController extends Controller
             'status' => 'processed',
         ]);
 
-        return response()->noContent(200);
+        return $instance instanceof ProvidesWebhookResponse
+            ? $instance->webhookAcceptedResponse($request)
+            : response()->noContent(200);
     }
 }
