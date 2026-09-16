@@ -344,6 +344,24 @@ Notes:
 - Neither method is called when `handleWebhook()` throws — that still surfaces as a `500`.
 - Exceptions thrown inside either method are **not** swallowed. A failure to build the ack is a real failure, and hiding it behind an empty `200` would put you straight back into the retry loop the contract exists to prevent.
 
+##### Referencing the log row
+
+Carriers that require an identifier in the acknowledgement rarely send one you can echo back. The webhook log row's id is available on the request, set before either contract method is called:
+
+```php
+public function webhookAcceptedResponse(Request $request): Response
+{
+    return response()->json([
+        'code' => '1',
+        'requestId' => (string) $request->attributes->get('courier.webhook_log_id'),
+    ]);
+}
+```
+
+It is an `?int`, and it is `null` when the log write failed — that failure is swallowed so it never breaks a webhook, which means a driver must treat null as "no row to reference" and fall back to something of its own. It is set on the rejected path too, so a rejection can carry a reference support can look up.
+
+Look the row up with `CourierWebhookLog::find($id)`.
+
 #### Webhook rate limiting
 
 The webhook route is throttled **per driver, per IP** — one carrier pushing hard cannot exhaust another carrier's allowance from the same address.
