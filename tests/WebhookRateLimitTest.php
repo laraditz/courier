@@ -5,6 +5,7 @@ namespace Laraditz\Courier\Tests;
 use Illuminate\Cache\RateLimiting\Unlimited;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\RateLimiter;
 use Laraditz\Courier\Support\WebhookRateLimit;
 
 class WebhookRateLimitTest extends TestCase
@@ -44,6 +45,22 @@ class WebhookRateLimitTest extends TestCase
         $this->assertNotInstanceOf(Unlimited::class, $limit);
         $this->assertSame(60, $limit->maxAttempts);
         $this->assertSame(60, $limit->decaySeconds);
+    }
+
+    public function test_package_config_ships_a_default_rate_limit(): void
+    {
+        $this->assertSame(60, config('courier.webhook.rate_limit'));
+    }
+
+    public function test_courier_webhook_limiter_is_registered(): void
+    {
+        $limiter = RateLimiter::limiter('courier-webhook');
+
+        $this->assertNotNull($limiter);
+        $this->assertSame(
+            'jtexpress|198.51.100.7',
+            $limiter($this->requestFor('jtexpress', '198.51.100.7'))->key
+        );
     }
 
     public function test_key_is_driver_and_ip(): void
