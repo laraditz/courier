@@ -2,6 +2,8 @@
 
 namespace Laraditz\Courier\Tests;
 
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Laraditz\Courier\Models\CourierWebhookLog;
 use Laraditz\Courier\Tests\Fixtures\ConfigurableWebhookDriver;
 use Laraditz\Courier\Tests\Fixtures\PlainWebhookDriver;
@@ -134,5 +136,73 @@ class WebhookResponseContractTest extends TestCase
         $this->expectExceptionMessage('ack builder blew up');
 
         $this->postJson('/courier/webhook/throwing-response-driver', ['event' => 'test']);
+    }
+
+    public function test_webhook_log_id_is_available_to_the_accepted_response(): void
+    {
+        $this->registerDriver('log-id-accepting-driver', new ConfigurableWebhookDriver(
+            accepted: fn ($request) => response()->json([
+                'logId' => $request->attributes->get('courier.webhook_log_id'),
+            ]),
+        ));
+
+        $response = $this->postJson('/courier/webhook/log-id-accepting-driver', ['event' => 'test']);
+
+        $row = CourierWebhookLog::first();
+        $this->assertNotNull($row);
+        $response->assertExactJson(['logId' => $row->id]);
+    }
+
+    public function test_webhook_log_id_is_available_to_the_rejected_response(): void
+    {
+        $this->registerDriver('log-id-rejecting-driver', new ConfigurableWebhookDriver(
+            verifies: false,
+            rejected: fn ($request) => response()->json([
+                'logId' => $request->attributes->get('courier.webhook_log_id'),
+            ], 401),
+        ));
+
+        $response = $this->postJson('/courier/webhook/log-id-rejecting-driver', ['event' => 'test']);
+
+        $row = CourierWebhookLog::first();
+        $this->assertNotNull($row);
+        $this->assertSame('rejected', $row->status);
+
+        $response->assertStatus(401);
+        $response->assertExactJson(['logId' => $row->id]);
+    }
+
+    public function test_webhook_log_id_is_null_when_the_log_write_failed(): void
+    {
+        Log::shouldReceive('error')->once();
+
+        // Drop the table so the write fails and is swallowed, exactly as in production.
+        Schema::drop('courier_webhook_logs');
+
+        $this->registerDriver('log-id-unwritable-driver', new ConfigurableWebhookDriver(
+            accepted: fn ($request) => response()->json([
+                // `has` distinguishes "set to null" from "never set" — both read as
+                // null through get(), but FR-04 requires the attribute to be present.
+                'present' => $request->attributes->has('courier.webhook_log_id'),
+                'logId' => $request->attributes->get('courier.webhook_log_id'),
+            ]),
+        ));
+
+        $response = $this->postJson('/courier/webhook/log-id-unwritable-driver', ['event' => 'test']);
+
+        $response->assertExactJson(['present' => true, 'logId' => null]);
+    }
+
+    public function test_plain_driver_is_unaffected_by_the_attribute(): void
+    {
+        $this->registerPlainDriver('plain-unaffected-accepting', verifies: true);
+        $this->registerPlainDriver('plain-unaffected-rejecting', verifies: false);
+
+        $accepted = $this->postJson('/courier/webhook/plain-unaffected-accepting', ['event' => 'test']);
+        $accepted->assertStatus(200);
+        $this->assertSame('', $accepted->getContent());
+
+        $this->postJson('/courier/webhook/plain-unaffected-rejecting', ['event' => 'test'])
+            ->assertStatus(401);
     }
 }
