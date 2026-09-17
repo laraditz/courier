@@ -4,7 +4,9 @@ namespace Laraditz\Courier\Tests\DTOs;
 
 use Laraditz\Courier\DTOs\Payloads\AvailabilityPayload;
 use Laraditz\Courier\DTOs\Payloads\RatePayload;
+use Carbon\Carbon;
 use Laraditz\Courier\DTOs\Payloads\ShipmentPayload;
+use Laraditz\Courier\Enums\FulfillmentMode;
 use Laraditz\Courier\DTOs\Shared\Address;
 use Laraditz\Courier\DTOs\Shared\Location;
 use Laraditz\Courier\DTOs\Shared\Parcel;
@@ -183,5 +185,62 @@ class PayloadTest extends TestCase
         $this->assertTrue($payload->scheduledAt->eq($at));
         $this->assertSame('ORDER-001', $payload->reference);
         $this->assertSame([], $payload->meta);
+    }
+
+    public function test_shipment_payload_defaults_fulfillment_and_scheduled_until_to_null(): void
+    {
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+        );
+
+        $this->assertNull($payload->fulfillment);
+        $this->assertNull($payload->scheduledUntil);
+    }
+
+    public function test_shipment_payload_carries_fulfillment_and_a_scheduled_window(): void
+    {
+        $start = Carbon::parse('2026-09-18 09:00:00');
+        $end = Carbon::parse('2026-09-18 13:00:00');
+
+        $payload = new ShipmentPayload(
+            sender: $this->makeAddress(),
+            recipient: $this->makeAddress(),
+            parcel: $this->makeParcel(),
+            serviceCode: 'STANDARD',
+            scheduledAt: $start,
+            fulfillment: FulfillmentMode::Pickup,
+            scheduledUntil: $end,
+        );
+
+        $this->assertSame(FulfillmentMode::Pickup, $payload->fulfillment);
+        $this->assertTrue($start->equalTo($payload->scheduledAt));
+        $this->assertTrue($end->equalTo($payload->scheduledUntil));
+    }
+
+    /**
+     * The two new properties are appended after every existing one. ShipmentPayload is
+     * readonly with promoted constructor properties, so inserting either mid-list would
+     * silently shift every positional caller onto the wrong argument.
+     */
+    public function test_existing_positional_construction_is_unaffected(): void
+    {
+        $payload = new ShipmentPayload(
+            $this->makeAddress(),
+            $this->makeAddress(),
+            $this->makeParcel(),
+            'STANDARD',
+            'Fragile',
+            null,
+            'REF-1',
+            ['isPODEnabled' => true],
+        );
+
+        $this->assertSame('REF-1', $payload->reference);
+        $this->assertSame(['isPODEnabled' => true], $payload->meta);
+        $this->assertNull($payload->fulfillment);
+        $this->assertNull($payload->scheduledUntil);
     }
 }
