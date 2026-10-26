@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - <release date>
+## [1.3.0] - 2026-10-26
 
 ### Added
 
@@ -18,15 +18,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PodResult` DTO (`status`, `imageUrl: ?string`, `deliveredAt: ?Carbon`) for drivers that expose proof of delivery. `status` is a plain string rather than an enum so an undocumented carrier status never throws.
 - `ProvidesWebhookResponse` contract — an optional interface letting a driver shape the webhook endpoint's response on both exits (`webhookAcceptedResponse()`, `webhookRejectedResponse()`). Previously `WebhookController` hardcoded an empty `200` and a bare `abort(401)`, so a carrier that parses the ack body could not be satisfied by any driver. J&T Express checks the body for `code == "1"` and was recording every successfully handled push as a failed one. Both methods return `Symfony\Component\HttpFoundation\Response` so `response()->json()` is accepted. Fully additive — a driver that does not implement it gets byte-identical responses to before.
 - `WebhookLogWriter::lastRecord(): ?CourierWebhookLog` and a `courier.webhook_log_id` request attribute, set by `WebhookController` after each log write and before the matching `ProvidesWebhookResponse` call. Carriers that require an identifier in the acknowledgement seldom send one to echo back, so a driver can reference the row that was just written; `CourierWebhookLog::find($id)` resolves it. Null when the log write failed — that failure is swallowed by design, so drivers must handle null. `record()`'s `: void` signature is deliberately unchanged: widening it would be an incompatible override for any subclass, and the writer is container-resolvable through the controller's constructor.
+- `FulfillmentMode` enum (`Pickup`, `Dropoff`) describing how a parcel reaches the courier — distinct from `DeliveryMode`, which describes how it leaves them.
+- `ShipmentPayload::$fulfillment` (`?FulfillmentMode`) and `ShipmentPayload::$scheduledUntil` (`?Carbon`), both defaulting to `null` and appended after `$meta` so existing positional callers are unaffected. `$scheduledAt` is now documented as the start of a requested collection window, with `$scheduledUntil` closing it. A null `$fulfillment` leaves the choice to the driver's default.
 - `courier.webhook.rate_limit` config (`COURIER_WEBHOOK_RATE_LIMIT`, default `60`), with an optional per-driver override at `courier.drivers.{driver}.webhook.rate_limit`. `null` at either level disables throttling; a value that is not a usable ceiling falls back to the default rather than disabling it or locking the endpoint out.
 
 ### Changed
 
 - The webhook route's throttle is now keyed per driver instead of per IP alone. `courier/webhook/{driver}` takes the driver as a route *parameter*, so Laravel's default signature (`domain|ip`) meant the 60/min ceiling was shared across every courier driver at once — one carrier's burst cost every other carrier its allowance, and the overflow 429s counted as failed pushes. The default ceiling is unchanged at 60/min, so no existing deployment's limit moves on upgrade; drivers simply stop competing for it. Applications whose published `config/courier.php` predates the new `webhook` block fall back to the same 60 automatically.
 - Five keys added to the default `courier.logging.redact` list: `appkey`, `appsecret`, `signature`, `digest`, `apiaccount`. Redaction matches exact key names, so `apikey` did not cover `appKey`/`appSecret` — these were being stored unredacted by any driver sending them.
+- README lists the `laraditz/courier-spx-express` driver and shows the name each driver registers under (the value `Courier::driver()` takes). The `getDeliveryModes()` example now uses `jtexpress` instead of `jt-express`, which threw as written.
 - **Breaking:** `CourierDriver::getDeliveryModes()` is a new required method. Existing driver implementations (including `courier-lalamove`, `courier-jt-express`, `courier-sfexpress`) must implement it before upgrading to this version, despite the minor version number.
 
-  This remains the *only* breaking change in 1.3.0. `ProvidesWebhookResponse` is opt-in via `instanceof` and adds no required method, the throttle rework keeps the existing 60/min ceiling, and `lastRecord()` is purely additive — a driver that changes nothing behaves exactly as it does today.
+  This remains the *only* breaking change in 1.3.0. `ProvidesWebhookResponse` is opt-in via `instanceof` and adds no required method, the throttle rework keeps the existing 60/min ceiling, and `lastRecord()` and the new `ShipmentPayload` fields are purely additive — a driver that changes nothing behaves exactly as it does today.
 
 ## [1.2.0] - 2026-07-22
 
