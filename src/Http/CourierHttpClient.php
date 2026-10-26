@@ -3,6 +3,7 @@
 namespace Laraditz\Courier\Http;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Laraditz\Courier\Logging\ApiLogWriter;
@@ -20,9 +21,33 @@ class CourierHttpClient
 
     private ?string $waybillNumber = null;
 
+    private string $bodyFormat = 'json';
+
+    private int|float|null $timeout = null;
+
     public function __construct(private ?ApiLogWriter $writer = null)
     {
         $this->writer ??= new ApiLogWriter();
+    }
+
+    /**
+     * Send the request body form-encoded instead of as JSON.
+     */
+    public function asForm(): static
+    {
+        $this->bodyFormat = 'form';
+
+        return $this;
+    }
+
+    /**
+     * Override the request timeout in seconds. Left unset, Laravel's own default applies.
+     */
+    public function timeout(int|float $seconds): static
+    {
+        $this->timeout = $seconds;
+
+        return $this;
     }
 
     public function forLog(string $driver, string $action, ?string $reference = null, ?string $waybillNumber = null): static
@@ -68,7 +93,7 @@ class CourierHttpClient
         $start = microtime(true);
 
         try {
-            $response = Http::withHeaders($headers)->{$method}($url, $data);
+            $response = $this->pendingRequest($headers)->{$method}($url, $data);
         } catch (ConnectionException $e) {
             $this->log($method, $url, $headers, $data, null, (int) round((microtime(true) - $start) * 1000), $e);
 
@@ -78,6 +103,21 @@ class CourierHttpClient
         $this->log($method, $url, $headers, $data, $response, (int) round((microtime(true) - $start) * 1000));
 
         return $response;
+    }
+
+    protected function pendingRequest(array $headers): PendingRequest
+    {
+        $request = Http::withHeaders($headers);
+
+        if ($this->bodyFormat === 'form') {
+            $request = $request->asForm();
+        }
+
+        if ($this->timeout !== null) {
+            $request = $request->timeout($this->timeout);
+        }
+
+        return $request;
     }
 
     private function log(string $method, string $url, array $headers, array $data, ?Response $response, int $durationMs, ?ConnectionException $exception = null): void

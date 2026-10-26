@@ -12,6 +12,15 @@ return [
         ],
     ],
 
+    'webhook' => [
+        /*
+         * Maximum inbound webhook requests per minute, per driver per IP.
+         * Set to null to disable throttling. Override for a single carrier
+         * with drivers.{driver}.webhook.rate_limit.
+         */
+        'rate_limit' => env('COURIER_WEBHOOK_RATE_LIMIT', 60),
+    ],
+
     'logging' => [
         'enabled' => env('COURIER_LOGGING_ENABLED', true),
 
@@ -25,6 +34,11 @@ return [
             'secret',
             'token',
             'password',
+            'appkey',
+            'appsecret',
+            'signature',
+            'digest',
+            'apiaccount',
         ],
     ],
 ];

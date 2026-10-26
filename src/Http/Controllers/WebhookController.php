@@ -3,13 +3,14 @@
 namespace Laraditz\Courier\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Laraditz\Courier\Contracts\ExtractsWebhookReference;
 use Laraditz\Courier\Contracts\HandlesWebhooks;
+use Laraditz\Courier\Contracts\ProvidesWebhookResponse;
 use Laraditz\Courier\Events\WebhookReceived;
 use Laraditz\Courier\Exceptions\CourierException;
 use Laraditz\Courier\Logging\WebhookLogWriter;
+use Symfony\Component\HttpFoundation\Response;
 
 class WebhookController extends Controller
 {
@@ -51,6 +52,12 @@ class WebhookController extends Controller
                 'status' => 'rejected',
             ]);
 
+            $this->publishLogId($request);
+
+            if ($instance instanceof ProvidesWebhookResponse) {
+                return $instance->webhookRejectedResponse($request);
+            }
+
             abort(401);
         }
 
@@ -83,6 +90,22 @@ class WebhookController extends Controller
             'status' => 'processed',
         ]);
 
-        return response()->noContent(200);
+        $this->publishLogId($request);
+
+        return $instance instanceof ProvidesWebhookResponse
+            ? $instance->webhookAcceptedResponse($request)
+            : response()->noContent(200);
+    }
+
+    /**
+     * Makes the row just written available to a ProvidesWebhookResponse driver, so
+     * an acknowledgement can carry an identifier the log can be looked up by.
+     *
+     * Null when the log write failed — that failure is swallowed by design, and a
+     * driver reading this must treat null as "no row to reference".
+     */
+    private function publishLogId(Request $request): void
+    {
+        $request->attributes->set('courier.webhook_log_id', $this->logWriter->lastRecord()?->id);
     }
 }

@@ -2,7 +2,10 @@
 
 namespace Laraditz\Courier;
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Laraditz\Courier\Support\WebhookRateLimit;
 
 class CourierServiceProvider extends ServiceProvider
 {
@@ -16,6 +19,10 @@ class CourierServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Registered before the routes that reference it. An unregistered named
+        // limiter is not a no-op — ThrottleRequests throws MissingRateLimiterException.
+        RateLimiter::for('courier-webhook', fn (Request $request) => WebhookRateLimit::for($request));
+
         $this->loadRoutesFrom(__DIR__.'/../routes/webhook.php');
 
         if ($this->app->runningInConsole()) {

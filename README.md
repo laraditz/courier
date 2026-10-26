@@ -38,11 +38,12 @@ php artisan migrate
 
 ## Available Drivers
 
-| Package                                                                       | Carrier         |
-| ------------------------------------------------------------------------------ | --------------- |
-| [laraditz/courier-sfexpress](https://github.com/laraditz/courier-sfexpress)   | SF Express      |
-| [laraditz/courier-lalamove](https://github.com/laraditz/courier-lalamove)     | Lalamove        |
-| [laraditz/courier-jt-express](https://github.com/laraditz/courier-jt-express) | J&T Express (MY) |
+| Package                                                                         | Carrier          | Driver name  |
+| -------------------------------------------------------------------------------- | ---------------- | ------------ |
+| [laraditz/courier-sfexpress](https://github.com/laraditz/courier-sfexpress)     | SF Express       | `sfexpress`  |
+| [laraditz/courier-lalamove](https://github.com/laraditz/courier-lalamove)       | Lalamove         | `lalamove`   |
+| [laraditz/courier-jt-express](https://github.com/laraditz/courier-jt-express)   | J&T Express (MY) | `jtexpress`  |
+| [laraditz/courier-spx-express](https://github.com/laraditz/courier-spx-express) | SPX Express (MY) | `spxexpress` |
 
 ## Configuration
 
@@ -64,6 +65,12 @@ return [
             'sandbox'          => env('SFEXPRESS_SANDBOX', false),
         ],
     ],
+
+    'webhook' => [
+        // Inbound webhook requests per minute, per driver per IP.
+        // null disables throttling. See Webhooks → Webhook rate limiting.
+        'rate_limit' => env('COURIER_WEBHOOK_RATE_LIMIT', 60),
+    ],
 ];
 ```
 
@@ -78,6 +85,7 @@ return [
 | `cancelShipment`  | `string $waybillNumber, ?string $reference = null` | `CancelResult`      | Cancel an existing shipment                                |
 | `getLabel`        | `string $waybillNumber, ?string $reference = null` | `LabelResult`       | Retrieve the shipping label (PDF bytes or ZPL)            |
 | `getAvailability` | `AvailabilityPayload $payload`                     | `ServiceCollection` | List services available between two locations              |
+| `getDeliveryModes` | —                                                  | `DeliveryMode[]`    | Which delivery mode(s) this driver supports — `OnDemand`, `Scheduled`, or both |
 
 > **Driver support:** Not all drivers implement every method. Calling an unsupported method throws `Laraditz\Courier\Exceptions\UnsupportedOperationException`. Check the driver's documentation for which methods are available.
 >
@@ -96,17 +104,22 @@ return [
 | `LabelResult`       | `waybillNumber`, `format`, `content`, `meta()`                               |
 | `ServiceCollection` | `items[]` → `ServiceOption`                                                  |
 | `ServiceOption`     | `code`, `name`, `description`, `estimatedDays`                               |
+| `QuotationResult`   | `quotationId`, `price`, `currency`, `expiresAt`, `meta()`                    |
+| `DriverLocationResult` | `driverId`, `lat`, `lng`, `updatedAt`, `meta()`                           |
+| `PodResult`         | `status`, `imageUrl: ?string`, `deliveredAt: ?Carbon`                        |
 
 ### Payload DTOs
 
 | DTO                   | Properties                                                                                                                   |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `ShipmentPayload`     | `sender: Address`, `recipient: Address`, `parcel: Parcel`, `serviceCode: string`, `remarks: ?string`, `scheduledAt: ?Carbon`, `reference: ?string` |
+| `ShipmentPayload`     | `sender: Address`, `recipient: Address`, `parcel: Parcel`, `serviceCode: string`, `remarks: ?string`, `scheduledAt: ?Carbon`, `reference: ?string`, `meta: array` |
 | `RatePayload`         | `origin: Location`, `destination: Location`, `parcel: Parcel`, `serviceCode: string`                                         |
 | `AvailabilityPayload` | `origin: Location`, `destination: Location`                                                                                  |
 | `Address`             | `name`, `phone`, `email`, `line1`, `line2`, `line3`, `city`, `state`, `postcode`, `country`, `lat`, `lng`                    |
 | `Location`            | `postcode`, `city`, `state`, `country`, `lat`, `lng`                                                                         |
 | `Parcel`              | `weight`, `length`, `width`, `height`, `declaredValue`, `description`, `quantity`                                            |
+
+> **`ShipmentPayload::$meta`:** driver-specific options that have no place in the normalized payload — for example `['isPODEnabled' => true]` for a carrier that supports proof of delivery. A driver ignores keys it does not recognise, so populating `meta` never changes the request body of a driver that does not read it. Defaults to `[]`.
 
 ---
 
@@ -268,7 +281,7 @@ Event::listen(WebhookReceived::class, function (WebhookReceived $event) {
 });
 ```
 
-Drivers that do not implement `HandlesWebhooks` return `404`. Requests that fail `verifyWebhook` return `401`.
+Drivers that do not implement `HandlesWebhooks` return `404`. Requests that fail `verifyWebhook` return `401` by default — a driver can shape that response itself, see [Shaping the webhook response](#shaping-the-webhook-response) below.
 
 To associate an incoming webhook log with the shipment it relates to, a driver can also implement `ExtractsWebhookReference`:
 
@@ -289,6 +302,135 @@ class MyCarrierDriver implements CourierDriver, HandlesWebhooks, ExtractsWebhook
 ```
 
 Extraction is best-effort — if it throws, the failure is swallowed and logging/processing continues without a reference.
+
+#### Shaping the webhook response
+
+By default the endpoint returns an empty `200` on success and a `401` on failed verification. Some carriers parse the response body and treat anything else as a failed push — J&T Express, for example, checks the body for `code == "1"` and retries until it sees it.
+
+A driver that needs to control what goes back on the wire implements `ProvidesWebhookResponse`:
+
+```php
+use Illuminate\Http\Request;
+use Laraditz\Courier\Contracts\ProvidesWebhookResponse;
+use Symfony\Component\HttpFoundation\Response;
+
+class MyCarrierDriver implements CourierDriver, HandlesWebhooks, ProvidesWebhookResponse
+{
+    public function webhookAcceptedResponse(Request $request): Response
+    {
+        return response()->json([
+            'code' => '1',
+            'msg' => 'success',
+            'data' => 'SUCCESS',
+            'requestId' => $request->input('requestId'),
+        ]);
+    }
+
+    public function webhookRejectedResponse(Request $request): Response
+    {
+        return response()->json([
+            'code' => '145003030',
+            'msg' => 'headers signature verification failed',
+        ], 401);
+    }
+}
+```
+
+Both methods return `Symfony\Component\HttpFoundation\Response` rather than `Illuminate\Http\Response`, so `response()->json()` is accepted — `JsonResponse` is a sibling of `Illuminate\Http\Response`, not a subclass.
+
+Notes:
+
+- The interface is optional. A driver that does not implement it keeps the empty `200` and the plain `401`, unchanged.
+- A rejected request is still logged before `webhookRejectedResponse()` is called, so shaping the response never costs you the audit row.
+- Neither method is called when `handleWebhook()` throws — that still surfaces as a `500`.
+- Exceptions thrown inside either method are **not** swallowed. A failure to build the ack is a real failure, and hiding it behind an empty `200` would put you straight back into the retry loop the contract exists to prevent.
+
+##### Referencing the log row
+
+Carriers that require an identifier in the acknowledgement rarely send one you can echo back. The webhook log row's id is available on the request, set before either contract method is called:
+
+```php
+public function webhookAcceptedResponse(Request $request): Response
+{
+    return response()->json([
+        'code' => '1',
+        'requestId' => (string) $request->attributes->get('courier.webhook_log_id'),
+    ]);
+}
+```
+
+It is an `?int`, and it is `null` when the log write failed — that failure is swallowed so it never breaks a webhook, which means a driver must treat null as "no row to reference" and fall back to something of its own. It is set on the rejected path too, so a rejection can carry a reference support can look up.
+
+Look the row up with `CourierWebhookLog::find($id)`.
+
+#### Webhook rate limiting
+
+The webhook route is throttled **per driver, per IP** — one carrier pushing hard cannot exhaust another carrier's allowance from the same address.
+
+```php
+// config/courier.php
+'webhook' => [
+    'rate_limit' => env('COURIER_WEBHOOK_RATE_LIMIT', 60),
+],
+```
+
+The default is 60 requests per minute. To give a single carrier more headroom without touching the others, set a per-driver override:
+
+```php
+'drivers' => [
+    'jtexpress' => [
+        // ...
+        'webhook' => ['rate_limit' => 300],
+    ],
+],
+```
+
+Resolution order is per-driver, then global, then the built-in default of 60. Setting either to `null` disables throttling for that scope:
+
+```php
+'webhook' => ['rate_limit' => null],   // no throttling at all
+```
+
+A value that is not a usable ceiling — `0`, a negative number, a non-numeric string — is treated as unconfigured and falls back to 60, so a typo cannot silently disable throttling or lock the endpoint out.
+
+Requests over the limit get Laravel's standard `429`. The rate limiter runs as middleware, before the controller, so `ProvidesWebhookResponse` cannot shape that response.
+
+### On-Demand Driver Capabilities
+
+Every driver declares which delivery mode(s) it supports via `getDeliveryModes(): DeliveryMode[]`:
+
+```php
+use Laraditz\Courier\Enums\DeliveryMode;
+
+Courier::driver('lalamove')->getDeliveryModes(); // [DeliveryMode::OnDemand]
+Courier::driver('jtexpress')->getDeliveryModes(); // [DeliveryMode::Scheduled]
+Courier::driver('spxexpress')->getDeliveryModes(); // [DeliveryMode::Scheduled]
+```
+
+`DeliveryMode::OnDemand` means instant/live-driver dispatch (e.g. Lalamove); `DeliveryMode::Scheduled` means next-day/express delivery with a fixed pickup and drop-off. A driver that supports both returns both cases in the array.
+
+On-demand drivers can optionally implement these capability interfaces, checked the same way as `HandlesWebhooks` — via `instanceof`:
+
+| Interface | Method | Returns |
+| --- | --- | --- |
+| `LooksUpQuotations` | `getQuotation(string $quotationId)` | `QuotationResult` |
+| `ManagesAssignedDriver` | `removeDriver(string $orderId, string $driverId)` | `void` |
+| `TracksDriverLocation` | `getDriverLocation(string $orderId, string $driverId)` | `DriverLocationResult` |
+| `SupportsOrderEditing` | `editOrder(string $orderId, Address[] $stops)` | `ShipmentResult` |
+
+```php
+use Laraditz\Courier\Contracts\TracksDriverLocation;
+
+$driver = Courier::driver('lalamove');
+
+if ($driver instanceof TracksDriverLocation) {
+    $location = $driver->getDriverLocation($orderId, $driverId);
+    $location->lat;
+    $location->lng;
+}
+```
+
+None of these are required — a driver with no live-tracking or quotation-lookup endpoint simply doesn't implement the corresponding interface, and calling code checks `instanceof` before relying on it, exactly like `HandlesWebhooks`.
 
 ### Logging
 
@@ -312,9 +454,47 @@ Configure logging in `config/courier.php`:
         'secret',
         'token',
         'password',
+        'appkey',
+        'appsecret',
+        'signature',
+        'digest',
+        'apiaccount',
     ],
 ],
 ```
+
+Matching is on exact (case-insensitive) key names, so add the specific keys your driver sends —
+`apikey` does **not** cover `appKey`. Two limits worth knowing:
+
+- The `url` column is stored verbatim and is **never** redacted. Never put a credential in a URL string; pass it as a query array or header instead.
+- Redaction does not descend into JSON held inside a string value — a `['bizContent' => '{"password":"..."}']` body keeps its nested contents as-is.
+
+#### Making requests from a driver
+
+Drivers make their HTTP calls through `CourierHttpClient` — that wrapper is what produces the
+`courier_api_logs` rows. `forLog()` supplies the log context and is the only way to reach the verb
+methods; calling `get`/`post`/`put`/`patch`/`delete` without it throws a `LogicException`:
+
+```php
+use Laraditz\Courier\Http\CourierHttpClient;
+
+$response = (new CourierHttpClient())
+    ->forLog(driver: 'acme', action: 'create_order', reference: 'ORDER-001', waybillNumber: 'ACME123')
+    ->post('https://api.acme.test/v1/orders', ['weight' => 1.5], ['X-Api-Key' => $key]);
+```
+
+Verb methods take `(string $url, array $data = [], array $headers = [])` and return the underlying
+`Illuminate\Http\Client\Response` untouched. Two optional modifiers:
+
+```php
+->asForm()      // send the body form-encoded instead of as JSON
+->timeout(15)   // override the request timeout in seconds (Laravel's default of 30 applies otherwise)
+```
+
+> **`forLog()` mutates the instance and returns it — it does not clone.** Once called, the instance
+> stays configured, so a later request that forgets `forLog()` will not throw: it logs against the
+> *previous* call's `action`, `reference` and `waybill_number`. Call `forLog()` on every request, or
+> construct a fresh `CourierHttpClient` per request. Do not hold a configured instance as state.
 
 Query the logs directly via their models:
 
@@ -409,7 +589,11 @@ $this->app->make('courier')->extend('mycarrier', function ($app, $config) {
 });
 ```
 
-To receive push notifications from the carrier, also implement `Laraditz\Courier\Contracts\HandlesWebhooks`. See the [Webhooks](#webhooks) section for details.
+`getDeliveryModes(): DeliveryMode[]` is part of `CourierDriver` and must be implemented — return `[DeliveryMode::OnDemand]`, `[DeliveryMode::Scheduled]`, or both.
+
+To receive push notifications from the carrier, also implement `Laraditz\Courier\Contracts\HandlesWebhooks`. If the carrier parses your response body — many do — add `ProvidesWebhookResponse` so the driver controls what goes back on the wire. See the [Webhooks](#webhooks) section for details.
+
+For on-demand carriers (live driver dispatch, quotations, etc.), optionally implement `LooksUpQuotations`, `ManagesAssignedDriver`, `TracksDriverLocation`, and/or `SupportsOrderEditing`. See [On-Demand Driver Capabilities](#on-demand-driver-capabilities) for details.
 
 ## License
 

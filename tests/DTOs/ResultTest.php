@@ -3,6 +3,9 @@
 namespace Laraditz\Courier\Tests\DTOs;
 
 use Carbon\Carbon;
+use Laraditz\Courier\DTOs\Results\DriverLocationResult;
+use Laraditz\Courier\DTOs\Results\PodResult;
+use Laraditz\Courier\DTOs\Results\QuotationResult;
 use Laraditz\Courier\DTOs\Results\ShipmentResult;
 use Laraditz\Courier\DTOs\Results\TrackingEvent;
 use Laraditz\Courier\DTOs\Results\TrackingResult;
@@ -179,5 +182,84 @@ class ResultTest extends TestCase
         );
         $this->assertSame('abc123', $option->meta()['quotation_id']);
         $this->assertSame('2026-06-20T10:05:00Z', $option->meta()['expires_at']);
+    }
+
+    public function test_quotation_result(): void
+    {
+        $result = new QuotationResult(
+            quotationId: 'QUO-001',
+            price: 12.50,
+            currency: 'MYR',
+            expiresAt: Carbon::parse('2026-06-20T10:05:00Z'),
+            meta: ['stops' => [['stopId' => 's1'], ['stopId' => 's2']]],
+        );
+
+        $this->assertSame('QUO-001', $result->quotationId);
+        $this->assertSame(12.50, $result->price);
+        $this->assertSame('MYR', $result->currency);
+        $this->assertInstanceOf(Carbon::class, $result->expiresAt);
+        $this->assertSame(['stops' => [['stopId' => 's1'], ['stopId' => 's2']]], $result->meta());
+    }
+
+    public function test_quotation_result_expires_at_nullable_and_meta_defaults_empty(): void
+    {
+        $result = new QuotationResult('QUO-002', 5.00, 'MYR', null);
+
+        $this->assertNull($result->expiresAt);
+        $this->assertSame([], $result->meta());
+    }
+
+    public function test_driver_location_result(): void
+    {
+        $result = new DriverLocationResult(
+            driverId: 'DRV-001',
+            lat: 3.1390,
+            lng: 101.6869,
+            updatedAt: Carbon::parse('2026-06-20T10:05:00Z'),
+            meta: ['heading' => 90],
+        );
+
+        $this->assertSame('DRV-001', $result->driverId);
+        $this->assertSame(3.1390, $result->lat);
+        $this->assertSame(101.6869, $result->lng);
+        $this->assertInstanceOf(Carbon::class, $result->updatedAt);
+        $this->assertSame(['heading' => 90], $result->meta());
+    }
+
+    public function test_driver_location_result_updated_at_nullable_and_meta_defaults_empty(): void
+    {
+        $result = new DriverLocationResult('DRV-002', 3.0, 101.0, null);
+
+        $this->assertNull($result->updatedAt);
+        $this->assertSame([], $result->meta());
+    }
+
+    public function test_pod_result(): void
+    {
+        $result = new PodResult(
+            status: 'DELIVERED',
+            imageUrl: 'https://cdn.example.com/pod/abc.jpg',
+            deliveredAt: Carbon::parse('2026-06-19 09:30:00'),
+        );
+
+        $this->assertSame('DELIVERED', $result->status);
+        $this->assertSame('https://cdn.example.com/pod/abc.jpg', $result->imageUrl);
+        $this->assertInstanceOf(Carbon::class, $result->deliveredAt);
+    }
+
+    public function test_pod_result_image_url_and_delivered_at_optional(): void
+    {
+        $result = new PodResult('PENDING');
+
+        $this->assertSame('PENDING', $result->status);
+        $this->assertNull($result->imageUrl);
+        $this->assertNull($result->deliveredAt);
+    }
+
+    public function test_pod_result_accepts_undocumented_status(): void
+    {
+        $result = new PodResult('SOMETHING_NEW');
+
+        $this->assertSame('SOMETHING_NEW', $result->status);
     }
 }

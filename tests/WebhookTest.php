@@ -15,6 +15,7 @@ use Laraditz\Courier\DTOs\Results\RateCollection;
 use Laraditz\Courier\DTOs\Results\ServiceCollection;
 use Laraditz\Courier\DTOs\Results\ShipmentResult;
 use Laraditz\Courier\DTOs\Results\TrackingResult;
+use Laraditz\Courier\Enums\DeliveryMode;
 use Laraditz\Courier\Events\WebhookReceived;
 use Laraditz\Courier\Models\CourierWebhookLog;
 
@@ -31,6 +32,7 @@ class WebhookTest extends TestCase
             public function cancelShipment(string $w, ?string $r = null): CancelResult { throw new \RuntimeException; }
             public function getLabel(string $w, ?string $r = null): LabelResult { throw new \RuntimeException; }
             public function getAvailability(AvailabilityPayload $p): ServiceCollection { throw new \RuntimeException; }
+            public function getDeliveryModes(): array { return [DeliveryMode::Scheduled]; }
             public function verifyWebhook(Request $request): bool { return $this->verifies; }
             public function handleWebhook(Request $request): void {}
         };
@@ -47,6 +49,7 @@ class WebhookTest extends TestCase
             public function cancelShipment(string $w, ?string $r = null): CancelResult { throw new \RuntimeException; }
             public function getLabel(string $w, ?string $r = null): LabelResult { throw new \RuntimeException; }
             public function getAvailability(AvailabilityPayload $p): ServiceCollection { throw new \RuntimeException; }
+            public function getDeliveryModes(): array { return [DeliveryMode::Scheduled]; }
             public function verifyWebhook(Request $request): bool { return true; }
             public function handleWebhook(Request $request): void {}
             public function extractWebhookReference(Request $request): array
@@ -67,6 +70,7 @@ class WebhookTest extends TestCase
             public function cancelShipment(string $w, ?string $r = null): CancelResult { throw new \RuntimeException; }
             public function getLabel(string $w, ?string $r = null): LabelResult { throw new \RuntimeException; }
             public function getAvailability(AvailabilityPayload $p): ServiceCollection { throw new \RuntimeException; }
+            public function getDeliveryModes(): array { return [DeliveryMode::Scheduled]; }
             public function verifyWebhook(Request $request): bool { return true; }
             public function handleWebhook(Request $request): void {}
             public function extractWebhookReference(Request $request): array
@@ -87,6 +91,7 @@ class WebhookTest extends TestCase
             public function cancelShipment(string $w, ?string $r = null): CancelResult { throw new \RuntimeException; }
             public function getLabel(string $w, ?string $r = null): LabelResult { throw new \RuntimeException; }
             public function getAvailability(AvailabilityPayload $p): ServiceCollection { throw new \RuntimeException; }
+            public function getDeliveryModes(): array { return [DeliveryMode::Scheduled]; }
             public function verifyWebhook(Request $request): bool { return true; }
             public function handleWebhook(Request $request): void { throw new \RuntimeException('processing blew up'); }
         };
