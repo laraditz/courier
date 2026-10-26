@@ -38,11 +38,12 @@ php artisan migrate
 
 ## Available Drivers
 
-| Package                                                                       | Carrier         |
-| ------------------------------------------------------------------------------ | --------------- |
-| [laraditz/courier-sfexpress](https://github.com/laraditz/courier-sfexpress)   | SF Express      |
-| [laraditz/courier-lalamove](https://github.com/laraditz/courier-lalamove)     | Lalamove        |
-| [laraditz/courier-jt-express](https://github.com/laraditz/courier-jt-express) | J&T Express (MY) |
+| Package                                                                         | Carrier          | Driver name  |
+| -------------------------------------------------------------------------------- | ---------------- | ------------ |
+| [laraditz/courier-sfexpress](https://github.com/laraditz/courier-sfexpress)     | SF Express       | `sfexpress`  |
+| [laraditz/courier-lalamove](https://github.com/laraditz/courier-lalamove)       | Lalamove         | `lalamove`   |
+| [laraditz/courier-jt-express](https://github.com/laraditz/courier-jt-express)   | J&T Express (MY) | `jtexpress`  |
+| [laraditz/courier-spx-express](https://github.com/laraditz/courier-spx-express) | SPX Express (MY) | `spxexpress` |
 
 ## Configuration
 
@@ -402,7 +403,8 @@ Every driver declares which delivery mode(s) it supports via `getDeliveryModes()
 use Laraditz\Courier\Enums\DeliveryMode;
 
 Courier::driver('lalamove')->getDeliveryModes(); // [DeliveryMode::OnDemand]
-Courier::driver('jt-express')->getDeliveryModes(); // [DeliveryMode::Scheduled]
+Courier::driver('jtexpress')->getDeliveryModes(); // [DeliveryMode::Scheduled]
+Courier::driver('spxexpress')->getDeliveryModes(); // [DeliveryMode::Scheduled]
 ```
 
 `DeliveryMode::OnDemand` means instant/live-driver dispatch (e.g. Lalamove); `DeliveryMode::Scheduled` means next-day/express delivery with a fixed pickup and drop-off. A driver that supports both returns both cases in the array.
